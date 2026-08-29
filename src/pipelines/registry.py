@@ -10,6 +10,8 @@ PIPELINES = {
     "ot_flow": run_ot,
     "mnist_flow": run_mnist,
     "mnist_conditional_flow": run_mnist_conditional,
+    "mnist_conditional_additive": run_mnist_conditional,
+    "mnist_conditional_adagn": run_mnist_conditional,
 }
 
 

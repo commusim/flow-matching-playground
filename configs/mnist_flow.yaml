@@ -11,3 +11,6 @@ subset_size: 60000
 download: false
 num_workers: 0
 animation: true
+model_variant: unconditional
+checkpoint_path: null
+

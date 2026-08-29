@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from src.modules.flow import flow_matching_loss, linear_flow_batch
-from src.modules.image_velocity import ConditionalMNISTVelocityCNN
+from src.modules.image_model_registry import create_mnist_model, load_mnist_checkpoint
 from src.utils.common import (
     create_run_dir,
     get_device,
@@ -42,6 +42,7 @@ DEFAULTS = {
     "animation": True,
     "feature_layer": "block_3",
     "checkpoint_path": None,
+    "model_variant": "conditional_adagn",
     "output_root": None,
 }
 
@@ -60,11 +61,26 @@ def run(config):
         num_workers=cfg["num_workers"],
     )
     batches = infinite_batches(loader)
-    model = ConditionalMNISTVelocityCNN(hidden=cfg["hidden"]).to(device)
     if cfg["checkpoint_path"]:
-        state = torch.load(cfg["checkpoint_path"], map_location=device)
-        model.load_state_dict(state)
-        print(f"loaded checkpoint: {cfg['checkpoint_path']}")
+        requested_variant = cfg.get("model_variant", "auto")
+        model, detected_variant, dimensions = load_mnist_checkpoint(
+            cfg["checkpoint_path"], device, requested_variant
+        )
+        if detected_variant == "unconditional":
+            raise ValueError(
+                "An unconditional checkpoint must be loaded with the mnist_flow pipeline."
+            )
+        cfg["model_variant"] = detected_variant
+        cfg.update(dimensions)
+        print(f"loaded {detected_variant} checkpoint: {cfg['checkpoint_path']}")
+    else:
+        variant = cfg.get("model_variant", "conditional_adagn")
+        if variant == "auto":
+            variant = "conditional_adagn"
+        if variant == "unconditional":
+            raise ValueError("Use the mnist_flow pipeline for the unconditional model.")
+        model = create_mnist_model(variant, hidden=cfg["hidden"]).to(device)
+        cfg["model_variant"] = variant
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=1e-5)
     losses = []
     model.train()

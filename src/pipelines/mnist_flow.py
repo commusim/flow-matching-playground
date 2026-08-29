@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from src.modules.flow import flow_matching_loss, linear_flow_batch
-from src.modules.image_velocity import MNISTVelocityCNN
+from src.modules.image_model_registry import create_mnist_model, load_mnist_checkpoint
 from src.utils.common import (
     create_run_dir,
     get_device,
@@ -33,6 +33,8 @@ DEFAULTS = {
     "download": False,
     "num_workers": 0,
     "animation": True,
+    "checkpoint_path": None,
+    "model_variant": "unconditional",
     "output_root": None,
 }
 
@@ -52,7 +54,19 @@ def run(config):
         num_workers=cfg["num_workers"],
     )
     batches = infinite_batches(loader)
-    model = MNISTVelocityCNN(hidden=cfg["hidden"]).to(device)
+    if cfg["checkpoint_path"]:
+        model, detected_variant, dimensions = load_mnist_checkpoint(
+            cfg["checkpoint_path"], device, cfg.get("model_variant", "auto")
+        )
+        if detected_variant != "unconditional":
+            raise ValueError(
+                "A conditional checkpoint must be loaded with mnist_conditional_flow."
+            )
+        cfg["model_variant"] = detected_variant
+        cfg.update(dimensions)
+        print(f"loaded unconditional checkpoint: {cfg['checkpoint_path']}")
+    else:
+        model = create_mnist_model("unconditional", hidden=cfg["hidden"]).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=1e-5)
     losses = []
     model.train()
@@ -78,7 +92,8 @@ def run(config):
     initial_noise = torch.randn(cfg["particles"], 1, 28, 28, device=device)
     frames = euler_integrate(model, initial_noise, cfg["ode_steps"])
     torch.save(model.state_dict(), run_dir / "checkpoint.pt")
-    plot_loss(losses, run_dir / "loss_curve.png")
+    if losses:
+        plot_loss(losses, run_dir / "loss_curve.png")
     plot_image_overview(
         real_images, initial_noise, frames[-1], run_dir / "overview.png"
     )
@@ -88,7 +103,7 @@ def run(config):
         make_image_animation(frames, run_dir / "sampling_animation.gif")
     generated = frames[-1]
     metrics = {
-        "final_loss": losses[-1],
+        "final_loss": losses[-1] if losses else None,
         "device": str(device),
         "parameters": sum(parameter.numel() for parameter in model.parameters()),
         "generated_mean": float(generated.mean()),

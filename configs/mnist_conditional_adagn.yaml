@@ -1,4 +1,4 @@
-pipeline: mnist_conditional_flow
+pipeline: mnist_conditional_adagn
 model_variant: conditional_adagn
 seed: 42
 device: auto
@@ -14,4 +14,3 @@ num_workers: 0
 animation: true
 feature_layer: block_3
 checkpoint_path: null
-

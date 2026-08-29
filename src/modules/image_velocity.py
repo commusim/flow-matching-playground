@@ -17,8 +17,8 @@ class SinusoidalTimeEmbedding(nn.Module):
         return torch.cat([torch.sin(angles), torch.cos(angles)], dim=1)
 
 
-class MNISTVelocityCNN(nn.Module):
-    """Small convolutional velocity predictor for 28x28 pixel-space Flow Matching."""
+class UnconditionalMNISTVelocityCNN(nn.Module):
+    """Original unconditional MNIST velocity model."""
 
     def __init__(self, hidden=64, time_dim=32):
         super().__init__()
@@ -33,17 +33,8 @@ class MNISTVelocityCNN(nn.Module):
                     nn.GroupNorm(8, hidden),
                     nn.SiLU(),
                     nn.Conv2d(hidden, hidden, 3, padding=1),
-                ),
-                nn.Sequential(
-                    nn.GroupNorm(8, hidden),
-                    nn.SiLU(),
-                    nn.Conv2d(hidden, hidden, 3, padding=1),
-                ),
-                nn.Sequential(
-                    nn.GroupNorm(8, hidden),
-                    nn.SiLU(),
-                    nn.Conv2d(hidden, hidden, 3, padding=1),
-                ),
+                )
+                for _ in range(3)
             ]
         )
         self.output = nn.Sequential(
@@ -59,6 +50,53 @@ class MNISTVelocityCNN(nn.Module):
         for block in self.blocks:
             features = features + block(features)
         return self.output(features)
+
+
+class AdditiveConditionalMNISTVelocityCNN(nn.Module):
+    """Original label-conditioned model with one additive condition injection."""
+
+    def __init__(self, hidden=64, time_dim=32, label_dim=32, classes=10):
+        super().__init__()
+        if hidden % 8 != 0:
+            raise ValueError("hidden must be divisible by 8 for GroupNorm")
+        self.time_embedding = SinusoidalTimeEmbedding(time_dim)
+        self.time_projection = nn.Sequential(
+            nn.Linear(time_dim, hidden), nn.SiLU(), nn.Linear(hidden, hidden)
+        )
+        self.label_embedding = nn.Embedding(classes, label_dim)
+        self.label_projection = nn.Sequential(
+            nn.Linear(label_dim, hidden), nn.SiLU(), nn.Linear(hidden, hidden)
+        )
+        self.input = nn.Conv2d(1, hidden, 3, padding=1)
+        self.blocks = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.GroupNorm(8, hidden),
+                    nn.SiLU(),
+                    nn.Conv2d(hidden, hidden, 3, padding=1),
+                )
+                for _ in range(3)
+            ]
+        )
+        self.output = nn.Sequential(
+            nn.GroupNorm(8, hidden), nn.SiLU(), nn.Conv2d(hidden, 1, 3, padding=1)
+        )
+
+    def forward(self, image, time, label, return_features=False):
+        features = self.input(image)
+        time_features = self.time_projection(self.time_embedding(time))
+        label_features = self.label_projection(self.label_embedding(label))
+        features = features + (time_features + label_features).view(
+            len(image), -1, 1, 1
+        )
+        intermediate = {"input": features}
+        for index, block in enumerate(self.blocks, start=1):
+            features = features + block(features)
+            intermediate[f"block_{index}"] = features
+        velocity = self.output(features)
+        if return_features:
+            return velocity, intermediate
+        return velocity
 
 
 class ConditionalResidualBlock(nn.Module):
@@ -82,8 +120,8 @@ class ConditionalResidualBlock(nn.Module):
         return features + residual
 
 
-class ConditionalMNISTVelocityCNN(nn.Module):
-    """MNIST velocity model with AdaGN label/time conditioning in every block."""
+class AdaGNConditionalMNISTVelocityCNN(nn.Module):
+    """Label-conditioned model with AdaGN modulation in every residual block."""
 
     def __init__(self, hidden=64, time_dim=32, label_dim=32, classes=10):
         super().__init__()
@@ -129,3 +167,7 @@ class ConditionalMNISTVelocityCNN(nn.Module):
         if return_features:
             return velocity, intermediate
         return velocity
+
+
+MNISTVelocityCNN = UnconditionalMNISTVelocityCNN
+ConditionalMNISTVelocityCNN = AdaGNConditionalMNISTVelocityCNN

@@ -1,5 +1,5 @@
-pipeline: mnist_conditional_flow
-model_variant: conditional_adagn
+pipeline: mnist_conditional_additive
+model_variant: conditional_additive
 seed: 42
 device: auto
 steps: 3000
@@ -14,4 +14,3 @@ num_workers: 0
 animation: true
 feature_layer: block_3
 checkpoint_path: null
-

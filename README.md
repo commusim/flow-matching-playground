@@ -91,6 +91,23 @@ dx/dt = v_theta(x, t, c)
 
 打开 [docs/flow_matching_tutorial.html](docs/flow_matching_tutorial.html)，可以拖动时间 `t`，观察二维粒子如何沿速度场移动，并切换无条件、双月牙和圆环条件。该文件可以直接部署到 GitHub Pages。
 
+## MNIST模型版本与Checkpoint兼容
+
+项目明确保留三种模型架构：
+
+| 模型名称 | `model_variant` | 配置文件 | Checkpoint用途 |
+|---|---|---|---|
+| 无条件 | `unconditional` | `configs/mnist_flow.yaml` | 原始无条件MNIST模型 |
+| 有条件（入口加法） | `conditional_additive` | `configs/mnist_conditional_additive.yaml` | 兼容第一版Label条件模型 |
+| AdaGN条件 | `conditional_adagn` | `configs/mnist_conditional_adagn.yaml` | 每个残差块进行条件调制的新模型 |
+
+加载时建议使用`--model-variant auto`，系统会根据checkpoint参数名自动识别架构和hidden维度：
+
+```powershell
+python main.py --config configs/mnist_conditional_additive.yaml --checkpoint-path path/to/checkpoint.pt --model-variant auto --steps 0
+```
+
+`steps=0`表示只加载模型、执行生成和可视化；设置大于0则在已有权重上继续训练。无条件checkpoint必须使用`mnist_flow`，两种条件checkpoint使用对应条件pipeline。
 ## 输出规范
 
 每个pipeline应在 `outputs/<pipeline>/` 下保存独立实验结果，至少包含总览图、loss曲线、轨迹/速度场图、指标和实际配置。实验完成后可让Codex根据这些输出生成逐图说明文档。

@@ -20,6 +20,10 @@ def build_parser():
     parser.add_argument("--no-animation", action="store_true")
     parser.add_argument("--samples-per-class", type=int)
     parser.add_argument("--checkpoint-path")
+    parser.add_argument(
+        "--model-variant",
+        choices=["auto", "unconditional", "conditional_additive", "conditional_adagn"],
+    )
     return parser
 
 
@@ -39,6 +43,7 @@ def main():
         "subset_size",
         "samples_per_class",
         "checkpoint_path",
+        "model_variant",
     ):
         value = getattr(args, key)
         if value is not None:

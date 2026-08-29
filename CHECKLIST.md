@@ -34,6 +34,7 @@
 - [x] 空间金字塔特征PCA轨迹
 - [x] 空间特征PCA图与激活热力图
 - [x] MNIST checkpoint加载
+- [x] 三种MNIST模型版本与旧checkpoint自动识别
 
 ## 科学图像研究准备
 
