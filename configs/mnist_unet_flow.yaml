@@ -1,0 +1,14 @@
+pipeline: mnist_unet_flow
+seed: 42
+device: auto
+steps: 5000
+batch_size: 128
+lr: 0.001
+base_channels: 32
+samples_per_class: 4
+ode_steps: 80
+subset_size: 60000
+label_dropout: 0.1
+guidance_scale: 3.0
+animation: true
+classifier_checkpoint: null

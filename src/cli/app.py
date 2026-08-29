@@ -24,6 +24,9 @@ def build_parser():
         "--model-variant",
         choices=["auto", "unconditional", "conditional_additive", "conditional_adagn"],
     )
+    parser.add_argument("--vae-checkpoint")
+    parser.add_argument("--classifier-checkpoint")
+    parser.add_argument("--epochs", type=int)
     return parser
 
 
@@ -44,6 +47,9 @@ def main():
         "samples_per_class",
         "checkpoint_path",
         "model_variant",
+        "vae_checkpoint",
+        "classifier_checkpoint",
+        "epochs",
     ):
         value = getattr(args, key)
         if value is not None:

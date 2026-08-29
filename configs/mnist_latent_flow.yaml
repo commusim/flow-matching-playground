@@ -1,0 +1,13 @@
+pipeline: mnist_latent_flow
+seed: 42
+device: auto
+steps: 4000
+batch_size: 128
+lr: 0.001
+hidden: 64
+latent_channels: 8
+samples_per_class: 4
+ode_steps: 80
+subset_size: 60000
+vae_checkpoint: null
+classifier_checkpoint: null

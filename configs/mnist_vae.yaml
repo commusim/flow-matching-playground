@@ -1,0 +1,9 @@
+pipeline: mnist_vae
+seed: 42
+device: auto
+epochs: 10
+batch_size: 128
+lr: 0.001
+latent_channels: 8
+kl_weight: 0.0001
+subset_size: 60000

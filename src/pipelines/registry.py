@@ -1,3 +1,7 @@
+from src.pipelines.mnist_classifier import run as run_classifier
+from src.pipelines.mnist_vae import run as run_vae
+from src.pipelines.mnist_latent_flow import run as run_latent_flow
+from src.pipelines.mnist_unet_flow import run as run_unet_flow
 from src.pipelines.conditional_2d import run as run_conditional
 from src.pipelines.ot_flow import run as run_ot
 from src.pipelines.mnist_flow import run as run_mnist
@@ -12,6 +16,10 @@ PIPELINES = {
     "mnist_conditional_flow": run_mnist_conditional,
     "mnist_conditional_additive": run_mnist_conditional,
     "mnist_conditional_adagn": run_mnist_conditional,
+    "mnist_classifier": run_classifier,
+    "mnist_vae": run_vae,
+    "mnist_latent_flow": run_latent_flow,
+    "mnist_unet_flow": run_unet_flow,
 }
 
 

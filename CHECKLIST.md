@@ -25,9 +25,13 @@
 
 - [x] MNIST数据加载pipeline
 - [ ] Fashion-MNIST或CIFAR-10子集
+- [x] MNIST监督识别模型与语义特征t-SNE
+- [x] VAE latent条件Flow
+- [x] 多尺度AdaGN条件U-Net Flow
+- [x] 识别模型统一评价生成准确率
 - [x] 简单图像的像素空间Flow Matching
-- [ ] 小型VAE编码/解码实验
-- [ ] 图像latent轨迹可视化
+- [x] 小型VAE编码/解码实验
+- [x] 图像latent轨迹可视化
 - [x] Label条件MNIST生成
 - [x] 逐层AdaGN/FiLM条件残差块
 - [x] Label速度分离度诊断指标

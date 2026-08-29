@@ -1,0 +1,11 @@
+pipeline: mnist_classifier
+seed: 42
+device: auto
+epochs: 5
+batch_size: 128
+lr: 0.001
+feature_dim: 128
+subset_size: 60000
+test_subset_size: 10000
+tsne_samples: 1500
+checkpoint_path: null

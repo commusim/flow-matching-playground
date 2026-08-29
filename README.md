@@ -108,6 +108,50 @@ python main.py --config configs/mnist_conditional_additive.yaml --checkpoint-pat
 ```
 
 `steps=0`表示只加载模型、执行生成和可视化；设置大于0则在已有权重上继续训练。无条件checkpoint必须使用`mnist_flow`，两种条件checkpoint使用对应条件pipeline。
+## 三条图像生成学习路线
+
+### 识别模型与语义评价
+
+```powershell
+python main.py --config configs/mnist_classifier.yaml
+```
+
+输出分类器checkpoint、混淆矩阵和监督语义特征t-SNE。该分类器冻结后用于评价条件生成准确率和目标类别置信度。
+
+### VAE压缩与latent Flow
+
+先训练VAE：
+
+```powershell
+python main.py --config configs/mnist_vae.yaml
+```
+
+再把VAE和分类器checkpoint写入`configs/mnist_latent_flow.yaml`或通过CLI传入：
+
+```powershell
+python main.py --config configs/mnist_latent_flow.yaml --vae-checkpoint path/to/vae.pt --classifier-checkpoint path/to/classifier.pt
+```
+
+VAE把`1×28×28`像素压缩为`8×7×7` latent，Flow Matching在latent空间中训练，最终由Decoder还原图像。
+
+### 多尺度条件U-Net Flow
+
+```powershell
+python main.py --config configs/mnist_unet_flow.yaml --classifier-checkpoint path/to/classifier.pt
+```
+
+U-Net通过`28×28 → 14×14 → 7×7 → 14×14 → 28×28`获得全局感受野，在每个残差块中使用AdaGN条件，并通过Label Dropout与Classifier-Free Guidance强化类别控制。
+
+### 2026-08-29阶段结果
+
+| 实验 | 结果 |
+|---|---:|
+| MNIST识别模型 | 测试准确率98.87% |
+| MNIST VAE | 重建MSE 0.0030 |
+| VAE latent Flow | 条件准确率62.5%，目标置信度58.7% |
+| 条件U-Net Flow（1200步，base=16） | 条件准确率97.5%，目标置信度97.9% |
+
+这组对照表明：VAE能够显著压缩生成空间并保持良好重建，但当前latent Flow仍需要更强的latent速度网络或更长训练；多尺度U-Net对MNIST全局数字结构和Label控制最有效。
 ## 输出规范
 
 每个pipeline应在 `outputs/<pipeline>/` 下保存独立实验结果，至少包含总览图、loss曲线、轨迹/速度场图、指标和实际配置。实验完成后可让Codex根据这些输出生成逐图说明文档。
