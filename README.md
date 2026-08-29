@@ -42,6 +42,21 @@ python main.py --pipeline ot_flow --steps 2500 --particles 700
 
 使用Sinkhorn近似寻找更合理的噪声—目标配对，并观察运输距离与路径变化。
 
+### 4. MNIST像素空间Flow Matching
+
+MNIST训练集与测试集存放在根目录`data/MNIST/`，数据不会提交到Git。运行：
+
+```powershell
+python main.py --config configs/mnist_flow.yaml
+```
+
+CPU快速学习测试：
+
+```powershell
+python main.py --config configs/mnist_flow.yaml --steps 200 --batch-size 32 --particles 16 --ode-steps 30 --subset-size 2000 --no-animation
+```
+
+该pipeline直接把一张`1×28×28`图像视为784维样本，在像素空间学习速度场。输出包括真实图像/噪声/生成图像总览、ODE生成轨迹、不同时间预测的clean image、loss曲线和采样动画。
 ## 数学核心
 
 ```text
@@ -71,3 +86,4 @@ dx/dt = v_theta(x, t, c)
 6. 图像 latent、VAE、MMDiT与科学图像瓶颈诊断。
 
 详细研究讨论见 `SCIENTIFIC_IMAGE_FLOW_MATCHING_NOTES.md`，项目规范见 `AGENTS.md`。
+

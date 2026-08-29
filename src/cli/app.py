@@ -13,16 +13,34 @@ def build_parser():
     parser.add_argument("--seed", type=int)
     parser.add_argument("--device")
     parser.add_argument("--output-root")
+    parser.add_argument("--ode-steps", type=int)
+    parser.add_argument("--hidden", type=int)
+    parser.add_argument("--lr", type=float)
+    parser.add_argument("--subset-size", type=int)
+    parser.add_argument("--no-animation", action="store_true")
     return parser
 
 
 def main():
     args = build_parser().parse_args()
     config = load_config(args.config)
-    for key in ("steps", "particles", "batch_size", "seed", "device", "output_root"):
+    for key in (
+        "steps",
+        "particles",
+        "batch_size",
+        "seed",
+        "device",
+        "output_root",
+        "ode_steps",
+        "hidden",
+        "lr",
+        "subset_size",
+    ):
         value = getattr(args, key)
         if value is not None:
             config[key] = value
+    if args.no_animation:
+        config["animation"] = False
     pipeline = args.pipeline or config.get("pipeline", "unconditional_2d")
     config["pipeline"] = pipeline
     print("Resolved config:", config)

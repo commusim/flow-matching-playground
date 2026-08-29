@@ -23,9 +23,9 @@
 
 ## 简单图像扩展
 
-- [ ] MNIST数据加载pipeline
+- [x] MNIST数据加载pipeline
 - [ ] Fashion-MNIST或CIFAR-10子集
-- [ ] 简单图像的像素空间Flow Matching
+- [x] 简单图像的像素空间Flow Matching
 - [ ] 小型VAE编码/解码实验
 - [ ] 图像latent轨迹可视化
 
@@ -45,3 +45,4 @@
 - [x] 交互式HTML教程已建立
 - [ ] GitHub Pages自动部署
 - [ ] 每个pipeline生成独立图像说明文档
+
