@@ -1,0 +1,25 @@
+pipeline: semantic_trajectory_comparison
+seed: 42
+device: auto
+image_size: 28
+num_classes: 10
+samples_per_class: 2
+ode_steps: 80
+time_points: 13
+guidance_scale: 3.0
+classifier_checkpoint: outputs/mnist_classifier/20260829_154612_seed42/checkpoint.pt
+experiments:
+  additive_condition:
+    kind: conditional_additive
+    checkpoint: outputs/mnist_conditional_flow/20260829_135059_seed42/checkpoint.pt
+  adagn_condition:
+    kind: conditional_adagn
+    checkpoint: outputs/mnist_conditional_flow/20260829_145627_seed42/checkpoint.pt
+  latent_flow:
+    kind: latent_flow
+    checkpoint: outputs/mnist_latent_flow/20260829_160611_seed42/checkpoint.pt
+    vae_checkpoint: outputs/mnist_vae/20260829_155108_seed42/checkpoint.pt
+  conditional_unet:
+    kind: unet
+    checkpoint: outputs/mnist_unet_flow/20260829_165551_seed42/checkpoint.pt
+    guidance_scale: 3.0

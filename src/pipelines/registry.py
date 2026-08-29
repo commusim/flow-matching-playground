@@ -1,3 +1,4 @@
+from src.pipelines.semantic_trajectory_comparison import run as run_semantic_trajectory
 from src.pipelines.mnist_classifier import run as run_classifier
 from src.pipelines.mnist_vae import run as run_vae
 from src.pipelines.mnist_latent_flow import run as run_latent_flow
@@ -24,6 +25,7 @@ PIPELINES = {
     "image_vae": run_vae,
     "image_latent_flow": run_latent_flow,
     "image_unet_flow": run_unet_flow,
+    "semantic_trajectory_comparison": run_semantic_trajectory,
 }
 
 

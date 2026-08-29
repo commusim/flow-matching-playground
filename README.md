@@ -195,6 +195,24 @@ python main.py --config configs/cifar10_unet_flow.yaml
 ```
 
 自定义数据采用`ImageFolder`目录结构，并在config中设置`dataset: image_folder`、`data_root`、`input_channels`和`num_classes`。
+## 统一分类器语义轨迹比较
+
+不同生成器自身的隐藏特征不处于同一个空间，不能直接比较。新的`semantic_trajectory_comparison` pipeline将所有实验的中间图像输入同一个冻结监督分类器，提取同一层128维语义特征；随后把全部实验、全部时间和全部Label的特征拼接，只拟合一次t-SNE，再按实验拆分绘图。
+
+```powershell
+python main.py --config configs/semantic_trajectory_comparison.yaml
+```
+
+默认比较：入口加法条件CNN、AdaGN条件CNN、VAE latent Flow和条件U-Net。输出包括：
+
+- `shared_tsne_semantic_trajectories.png`：所有样本的共享t-SNE轨迹；
+- `shared_tsne_label_centroid_trajectories.png`：更清晰的Label中心轨迹；
+- `shared_tsne_final_embeddings.png`：最终语义特征位置；
+- `semantic_accuracy_over_time.png`：随Flow时间变化的目标类别准确率；
+- `semantic_confidence_over_time.png`：随Flow时间变化的目标类别置信度；
+- `shared_tsne_embeddings.npz`：同一降维器产生的坐标，可复用分析。
+
+本次每类2张、共20张的统一对比结果：加法条件20%、AdaGN条件5%、latent Flow 80%、条件U-Net 100%。样本量较小，数值用于轨迹机制观察，不作为最终统计结论。
 ## 输出规范
 
 每个pipeline应在 `outputs/<pipeline>/` 下保存独立实验结果，至少包含总览图、loss曲线、轨迹/速度场图、指标和实际配置。实验完成后可让Codex根据这些输出生成逐图说明文档。

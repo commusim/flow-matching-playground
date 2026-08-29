@@ -32,6 +32,8 @@
 - [x] 图像尺寸、通道数和类别数Config化
 - [x] MNIST/Fashion-MNIST/CIFAR-10/ImageFolder通用加载
 - [x] 识别模型统一评价生成准确率
+- [x] 统一分类器语义轨迹与单一联合t-SNE
+- [x] Label中心语义轨迹、准确率与置信度曲线
 - [x] 简单图像的像素空间Flow Matching
 - [x] 小型VAE编码/解码实验
 - [x] 图像latent轨迹可视化
