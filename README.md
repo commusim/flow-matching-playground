@@ -57,6 +57,25 @@ python main.py --config configs/mnist_flow.yaml --steps 200 --batch-size 32 --pa
 ```
 
 该pipeline直接把一张`1×28×28`图像视为784维样本，在像素空间学习速度场。输出包括真实图像/噪声/生成图像总览、ODE生成轨迹、不同时间预测的clean image、loss曲线和采样动画。
+### 5. Label条件MNIST与空间特征轨迹
+
+```powershell
+python main.py --config configs/mnist_conditional_flow.yaml
+```
+
+该pipeline把数字标签`0-9`作为条件输入速度网络，使同一组初始噪声在不同label下沿不同速度场生成指定数字。除了像素生成轨迹，还输出：
+
+- `label_grid.png`：按0-9排列的条件生成结果；
+- `feature_pca_trajectory.png`：使用1×1、2×2、4×4空间金字塔保留粗粒度空间信息，再对特征轨迹统一PCA；
+- `spatial_feature_pca.png`：对每个空间位置的通道特征做共享PCA并映射为RGB，观察空间结构形成；
+- `feature_activation.png`：通道特征范数热力图；
+- `predicted_clean.png`：每个时间点预测的最终干净图像。
+
+支持加载已有模型继续训练或只做分析：
+
+```powershell
+python main.py --config configs/mnist_conditional_flow.yaml --checkpoint-path outputs/.../checkpoint.pt
+```
 ## 数学核心
 
 ```text
@@ -86,4 +105,3 @@ dx/dt = v_theta(x, t, c)
 6. 图像 latent、VAE、MMDiT与科学图像瓶颈诊断。
 
 详细研究讨论见 `SCIENTIFIC_IMAGE_FLOW_MATCHING_NOTES.md`，项目规范见 `AGENTS.md`。
-

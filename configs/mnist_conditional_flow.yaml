@@ -1,0 +1,15 @@
+pipeline: mnist_conditional_flow
+seed: 42
+device: auto
+steps: 3000
+batch_size: 128
+lr: 0.001
+hidden: 64
+samples_per_class: 4
+ode_steps: 80
+subset_size: 60000
+download: false
+num_workers: 0
+animation: true
+feature_layer: block_3
+checkpoint_path: null

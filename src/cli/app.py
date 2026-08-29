@@ -18,6 +18,8 @@ def build_parser():
     parser.add_argument("--lr", type=float)
     parser.add_argument("--subset-size", type=int)
     parser.add_argument("--no-animation", action="store_true")
+    parser.add_argument("--samples-per-class", type=int)
+    parser.add_argument("--checkpoint-path")
     return parser
 
 
@@ -35,6 +37,8 @@ def main():
         "hidden",
         "lr",
         "subset_size",
+        "samples_per_class",
+        "checkpoint_path",
     ):
         value = getattr(args, key)
         if value is not None:

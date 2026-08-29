@@ -28,6 +28,10 @@
 - [x] 简单图像的像素空间Flow Matching
 - [ ] 小型VAE编码/解码实验
 - [ ] 图像latent轨迹可视化
+- [x] Label条件MNIST生成
+- [x] 空间金字塔特征PCA轨迹
+- [x] 空间特征PCA图与激活热力图
+- [x] MNIST checkpoint加载
 
 ## 科学图像研究准备
 
@@ -45,4 +49,3 @@
 - [x] 交互式HTML教程已建立
 - [ ] GitHub Pages自动部署
 - [ ] 每个pipeline生成独立图像说明文档
-

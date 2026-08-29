@@ -49,14 +49,18 @@ def plot_image_trajectory(frames, path, samples=8):
 
 
 @torch.no_grad()
-def plot_predicted_clean(model, frames, device, path, samples=8):
+def plot_predicted_clean(model, frames, device, path, samples=8, labels=None):
     indices = np.linspace(0, len(frames) - 2, 8).astype(int)
     fig, axes = plt.subplots(1, len(indices), figsize=(18, 3), constrained_layout=True)
     for ax, index in zip(axes, indices):
         state = frames[index][:samples].to(device)
         time_value = index / (len(frames) - 1)
         time = torch.full((len(state), 1), time_value, device=device)
-        velocity = model(state, time)
+        velocity = (
+            model(state, time)
+            if labels is None
+            else model(state, time, labels[: len(state)])
+        )
         clean = state + (1 - time_value) * velocity
         ax.imshow(_to_grid(clean, columns=samples), cmap="gray", vmin=0, vmax=1)
         ax.set_title(f"prediction at t={time_value:.2f}")
