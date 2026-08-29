@@ -8,7 +8,7 @@
 - [x] `src/cli/` 已建立
 - [x] 根目录独立存在 `configs/`、`data/`、`outputs/`、`main.py`
 - [x] 统一入口支持 `--pipeline`
-- [ ] 所有旧实验已完成内部模块化拆分
+- [x] 所有旧实验已完成内部模块化拆分
 
 ## Flow Matching原理
 

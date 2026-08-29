@@ -1,0 +1,11 @@
+pipeline: ot_flow
+seed: 42
+device: auto
+steps: 2500
+batch_size: 256
+lr: 0.002
+hidden: 128
+particles: 700
+ode_steps: 80
+ot_regularization: 0.12
+ot_iterations: 40

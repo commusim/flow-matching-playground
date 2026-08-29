@@ -1,9 +1,9 @@
-pipeline: conditional_2d
+pipeline: unconditional_2d
 seed: 42
 device: auto
 steps: 4000
-batch_size: 768
+batch_size: 1024
 lr: 0.002
 hidden: 128
-particles: 1000
+particles: 1400
 ode_steps: 80

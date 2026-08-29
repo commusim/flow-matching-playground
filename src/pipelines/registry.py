@@ -1,25 +1,15 @@
-from pathlib import Path
-import runpy
-import sys
+from src.pipelines.conditional_2d import run as run_conditional
+from src.pipelines.ot_flow import run as run_ot
+from src.pipelines.unconditional_2d import run as run_unconditional
+
+PIPELINES = {
+    "unconditional_2d": run_unconditional,
+    "conditional_2d": run_conditional,
+    "ot_flow": run_ot,
+}
 
 
-def run_legacy(name, argv):
-    root = Path(__file__).resolve().parents[2] / "src" / "pipelines" / "implementations"
-    old = sys.argv
-    sys.argv = [str(root / name)] + list(argv)
-    try:
-        return runpy.run_path(str(root / name), run_name="__main__")
-    finally:
-        sys.argv = old
-
-
-def run_unconditional(argv):
-    return run_legacy("legacy_2d_flow.py", argv)
-
-
-def run_conditional(argv):
-    return run_legacy("legacy_conditional_flow.py", argv)
-
-
-def run_ot(argv):
-    return run_legacy("legacy_ot_flow.py", argv)
+def run_pipeline(name, config):
+    if name not in PIPELINES:
+        raise ValueError(f"Unknown pipeline: {name}. Available: {', '.join(PIPELINES)}")
+    return PIPELINES[name](config)

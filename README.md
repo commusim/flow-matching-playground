@@ -14,7 +14,7 @@ outputs            每个实验的独立结果
 main.py            统一入口
 ```
 
-旧实验目前保存在 `src/pipelines/implementations/`，用于兼容和逐步拆分。
+三个二维实验已完成L4拆分：公共采样、ODE和绘图位于`src/utils/`，模型与训练目标位于`src/modules/`，完整实验位于`src/pipelines/`。
 
 ## 当前实验
 
