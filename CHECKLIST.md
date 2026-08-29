@@ -29,6 +29,8 @@
 - [ ] 小型VAE编码/解码实验
 - [ ] 图像latent轨迹可视化
 - [x] Label条件MNIST生成
+- [x] 逐层AdaGN/FiLM条件残差块
+- [x] Label速度分离度诊断指标
 - [x] 空间金字塔特征PCA轨迹
 - [x] 空间特征PCA图与激活热力图
 - [x] MNIST checkpoint加载

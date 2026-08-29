@@ -124,6 +124,21 @@ def run(config):
         make_image_animation(
             frames, run_dir / "sampling_animation.gif", samples=min(16, len(labels))
         )
+    probe = torch.randn(16, 1, 28, 28, device=device)
+    probe_time = torch.full((len(probe), 1), 0.05, device=device)
+    label_velocities = []
+    with torch.no_grad():
+        for label_value in range(10):
+            probe_labels = torch.full(
+                (len(probe),), label_value, dtype=torch.long, device=device
+            )
+            label_velocities.append(model(probe, probe_time, probe_labels))
+    pairwise_differences = []
+    for first in range(10):
+        for second in range(first + 1, 10):
+            difference = (label_velocities[first] - label_velocities[second]).pow(2)
+            pairwise_differences.append(float(difference.mean().sqrt().cpu()))
+    label_velocity_separation = float(np.mean(pairwise_differences))
     generated = frames[-1]
     save_run_metadata(
         run_dir,
@@ -134,6 +149,7 @@ def run(config):
             "parameters": sum(parameter.numel() for parameter in model.parameters()),
             "generated_mean": float(generated.mean()),
             "generated_std": float(generated.std()),
+            "label_velocity_separation_t005": label_velocity_separation,
         },
     )
     print(f"outputs: {run_dir}")

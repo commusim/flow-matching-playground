@@ -63,7 +63,7 @@ python main.py --config configs/mnist_flow.yaml --steps 200 --batch-size 32 --pa
 python main.py --config configs/mnist_conditional_flow.yaml
 ```
 
-该pipeline把数字标签`0-9`作为条件输入速度网络，使同一组初始噪声在不同label下沿不同速度场生成指定数字。除了像素生成轨迹，还输出：
+该pipeline把数字标签`0-9`作为条件输入速度网络，使同一组初始噪声在不同label下沿不同速度场生成指定数字。 当前条件网络使用逐层AdaGN/FiLM式残差块：每个Block都由时间和Label生成scale/shift，在GroupNorm之后调制特征，避免入口加法条件被归一化削弱。除了像素生成轨迹，还输出：
 
 - `label_grid.png`：按0-9排列的条件生成结果；
 - `feature_pca_trajectory.png`：使用1×1、2×2、4×4空间金字塔保留粗粒度空间信息，再对特征轨迹统一PCA；
