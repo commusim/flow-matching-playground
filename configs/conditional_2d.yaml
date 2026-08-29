@@ -1,0 +1,4 @@
+pipeline: conditional_2d
+steps: 4000
+particles: 1000
+
