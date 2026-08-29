@@ -126,3 +126,12 @@ outputs/
 - 修改代码后必须执行格式检查、语法检查和小规模smoke test；
 - 提交前应检查`git status`，确认没有误提交缓存、虚拟环境、临时文件或重复输出；
 - 不应为了追求复杂架构而牺牲学习项目的可读性；任何抽象都必须带来代码复用或概念解释上的实际收益。
+
+## 图像模块通用性要求
+
+- 图像速度网络（CNN、条件CNN、U-Net）统一维护在`src/modules/image_velocity.py`，避免同类模型分散到多个文件；
+- 不得在模型或pipeline中硬编码`1×28×28`、10个类别或单通道输入；
+- 图像尺寸、输入通道、类别数、数据集名称和数据根目录必须由config控制；
+- VAE和当前两级U-Net要求图像宽高能被4整除，pipeline应主动校验并给出清晰错误；
+- 新图像数据集应优先复用`create_image_loader`，支持MNIST、Fashion-MNIST、CIFAR-10和ImageFolder；
+- 默认参数必须保持现有MNIST checkpoint兼容，模型结构变化时必须执行旧资产严格加载测试。

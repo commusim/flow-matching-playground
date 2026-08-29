@@ -1,4 +1,8 @@
 pipeline: mnist_conditional_additive
+dataset: mnist
+image_size: 28
+input_channels: 1
+num_classes: 10
 model_variant: conditional_additive
 seed: 42
 device: auto
@@ -9,8 +13,6 @@ hidden: 64
 samples_per_class: 4
 ode_steps: 80
 subset_size: 60000
-download: false
-num_workers: 0
 animation: true
 feature_layer: block_3
 checkpoint_path: null

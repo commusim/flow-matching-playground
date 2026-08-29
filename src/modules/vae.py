@@ -2,12 +2,12 @@ import torch
 from torch import nn
 
 
-class MNISTVAE(nn.Module):
-    def __init__(self, latent_channels=8):
+class ImageVAE(nn.Module):
+    def __init__(self, latent_channels=8, input_channels=1):
         super().__init__()
         self.latent_channels = latent_channels
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, 32, 3, stride=2, padding=1),
+            nn.Conv2d(input_channels, 32, 3, stride=2, padding=1),
             nn.SiLU(),
             nn.Conv2d(32, 64, 3, stride=2, padding=1),
             nn.SiLU(),
@@ -21,7 +21,7 @@ class MNISTVAE(nn.Module):
             nn.SiLU(),
             nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),
             nn.SiLU(),
-            nn.ConvTranspose2d(32, 1, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(32, input_channels, 4, stride=2, padding=1),
             nn.Tanh(),
         )
 
@@ -74,3 +74,6 @@ class LatentConditionalVelocityCNN(nn.Module):
         for block in self.blocks:
             features = block(features, condition)
         return self.output(torch.nn.functional.silu(features))
+
+
+MNISTVAE = ImageVAE

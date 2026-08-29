@@ -1,4 +1,8 @@
 pipeline: mnist_classifier
+dataset: mnist
+image_size: 28
+input_channels: 1
+num_classes: 10
 seed: 42
 device: auto
 epochs: 5

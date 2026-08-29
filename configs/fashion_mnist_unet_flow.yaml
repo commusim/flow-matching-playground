@@ -1,8 +1,10 @@
-pipeline: mnist_unet_flow
-dataset: mnist
-image_size: 28
+pipeline: image_unet_flow
+dataset: fashion_mnist
+image_size: 32
 input_channels: 1
 num_classes: 10
+download: true
+data_root: null
 seed: 42
 device: auto
 steps: 5000

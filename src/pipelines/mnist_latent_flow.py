@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from src.modules.flow import flow_matching_loss, linear_flow_batch
-from src.modules.vae import LatentConditionalVelocityCNN, MNISTVAE
+from src.modules.vae import ImageVAE, LatentConditionalVelocityCNN
 from src.utils.common import (
     create_run_dir,
     get_device,
@@ -9,14 +9,18 @@ from src.utils.common import (
     save_run_metadata,
     seed_everything,
 )
-from src.utils.image_data import create_mnist_loader, infinite_batches
-from src.utils.image_plotting import plot_image_overview, plot_image_trajectory
 from src.utils.feature_visualization import plot_label_conditioned_samples
+from src.utils.image_data import create_image_loader, dataset_spec, infinite_batches
+from src.utils.image_plotting import plot_image_overview, plot_image_trajectory
 from src.utils.plotting import plot_loss
 from src.utils.semantic_evaluation import evaluate_conditional_images, load_classifier
 
 DEFAULTS = {
     "pipeline": "mnist_latent_flow",
+    "dataset": "mnist",
+    "image_size": 28,
+    "input_channels": None,
+    "num_classes": None,
     "seed": 42,
     "device": "auto",
     "steps": 4000,
@@ -29,6 +33,8 @@ DEFAULTS = {
     "subset_size": 60000,
     "vae_checkpoint": None,
     "classifier_checkpoint": None,
+    "download": False,
+    "data_root": None,
     "output_root": None,
 }
 
@@ -38,19 +44,34 @@ def run(config):
     seed_everything(cfg["seed"])
     device = get_device(cfg["device"])
     run_dir = create_run_dir(cfg["pipeline"], cfg["seed"], cfg["output_root"])
+    spec = dataset_spec(cfg["dataset"])
+    cfg["input_channels"] = cfg["input_channels"] or spec["channels"]
+    cfg["num_classes"] = cfg["num_classes"] or spec["classes"]
     if not cfg["vae_checkpoint"]:
-        raise ValueError("mnist_latent_flow requires vae_checkpoint")
-    vae = MNISTVAE(cfg["latent_channels"]).to(device)
-    vae.load_state_dict(torch.load(cfg["vae_checkpoint"], map_location=device))
+        raise ValueError("latent Flow requires vae_checkpoint")
+    if cfg["image_size"] % 4 != 0:
+        raise ValueError("image_size must be divisible by 4 for ImageVAE")
+    vae_state = torch.load(cfg["vae_checkpoint"], map_location=device)
+    cfg["latent_channels"] = int(vae_state["to_mean.weight"].shape[0])
+    cfg["input_channels"] = int(vae_state["encoder.0.weight"].shape[1])
+    vae = ImageVAE(cfg["latent_channels"], cfg["input_channels"]).to(device)
+    vae.load_state_dict(vae_state)
     vae.eval()
-    [p.requires_grad_(False) for p in vae.parameters()]
-    loader = create_mnist_loader(
-        project_root() / "data", cfg["batch_size"], True, cfg["subset_size"], False, 0
+    [parameter.requires_grad_(False) for parameter in vae.parameters()]
+    loader = create_image_loader(
+        cfg["data_root"] or project_root() / "data",
+        cfg["batch_size"],
+        dataset=cfg["dataset"],
+        train=True,
+        image_size=cfg["image_size"],
+        input_channels=cfg["input_channels"],
+        subset_size=cfg["subset_size"],
+        download=cfg["download"],
     )
     batches = infinite_batches(loader)
-    model = LatentConditionalVelocityCNN(cfg["latent_channels"], cfg["hidden"]).to(
-        device
-    )
+    model = LatentConditionalVelocityCNN(
+        cfg["latent_channels"], cfg["hidden"], classes=cfg["num_classes"]
+    ).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"])
     losses = []
     for step in range(1, cfg["steps"] + 1):
@@ -69,8 +90,11 @@ def run(config):
         if step == 1 or step % max(1, cfg["steps"] // 10) == 0:
             print(f"step {step}/{cfg['steps']} loss {np.mean(losses[-100:]):.5f}")
     samples = cfg["samples_per_class"]
-    labels = torch.arange(10, device=device).repeat_interleave(samples)
-    latent = torch.randn(len(labels), cfg["latent_channels"], 7, 7, device=device)
+    labels = torch.arange(cfg["num_classes"], device=device).repeat_interleave(samples)
+    latent_size = cfg["image_size"] // 4
+    latent = torch.randn(
+        len(labels), cfg["latent_channels"], latent_size, latent_size, device=device
+    )
     latent_frames = [latent.cpu()]
     dt = 1 / cfg["ode_steps"]
     model.eval()
@@ -90,7 +114,9 @@ def run(config):
         generated, labels, run_dir / "label_grid.png", samples
     )
     plot_image_trajectory(
-        decoded_frames, run_dir / "decoded_trajectory.png", samples=min(10, len(labels))
+        decoded_frames,
+        run_dir / "decoded_trajectory.png",
+        samples=min(cfg["num_classes"], len(labels)),
     )
     metrics = {
         "final_loss": losses[-1],

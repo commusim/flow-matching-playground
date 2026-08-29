@@ -28,6 +28,9 @@
 - [x] MNIST监督识别模型与语义特征t-SNE
 - [x] VAE latent条件Flow
 - [x] 多尺度AdaGN条件U-Net Flow
+- [x] U-Net合并到image_velocity统一模块
+- [x] 图像尺寸、通道数和类别数Config化
+- [x] MNIST/Fashion-MNIST/CIFAR-10/ImageFolder通用加载
 - [x] 识别模型统一评价生成准确率
 - [x] 简单图像的像素空间Flow Matching
 - [x] 小型VAE编码/解码实验

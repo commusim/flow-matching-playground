@@ -152,6 +152,49 @@ U-Net通过`28×28 → 14×14 → 7×7 → 14×14 → 28×28`获得全局感受�
 | 条件U-Net Flow（1200步，base=16） | 条件准确率97.5%，目标置信度97.9% |
 
 这组对照表明：VAE能够显著压缩生成空间并保持良好重建，但当前latent Flow仍需要更强的latent速度网络或更长训练；多尺度U-Net对MNIST全局数字结构和Label控制最有效。
+## 通用图像配置
+
+U-Net实现现已合并到`src/modules/image_velocity.py`，图像速度模型统一放在同一模块。旧的模型类名与checkpoint参数键保持兼容。
+
+图像pipeline不再固定为`1×28×28`。以下参数可以在YAML或CLI中设置：
+
+```yaml
+dataset: mnist          # mnist / fashion_mnist / cifar10 / image_folder
+image_size: 32          # VAE和两级U-Net要求能被4整除
+input_channels: 1       # 灰度为1，RGB为3
+num_classes: 10
+data_root: null         # null表示项目根目录data/
+download: true
+```
+
+CLI覆盖示例：
+
+```powershell
+python main.py --config configs/mnist_unet_flow.yaml --image-size 32 --input-channels 1 --num-classes 10
+```
+
+项目还提供通用pipeline别名：
+
+```text
+image_classifier
+image_vae
+image_latent_flow
+image_unet_flow
+```
+
+Fashion-MNIST示例：
+
+```powershell
+python main.py --config configs/fashion_mnist_unet_flow.yaml
+```
+
+CIFAR-10 RGB示例：
+
+```powershell
+python main.py --config configs/cifar10_unet_flow.yaml
+```
+
+自定义数据采用`ImageFolder`目录结构，并在config中设置`dataset: image_folder`、`data_root`、`input_channels`和`num_classes`。
 ## 输出规范
 
 每个pipeline应在 `outputs/<pipeline>/` 下保存独立实验结果，至少包含总览图、loss曲线、轨迹/速度场图、指标和实际配置。实验完成后可让Codex根据这些输出生成逐图说明文档。

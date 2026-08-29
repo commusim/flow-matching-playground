@@ -46,7 +46,8 @@ def plot_feature_pca_trajectory(vectors, labels, path):
     projected = projected.reshape(time_count, sample_count, 2)
     labels_np = labels.detach().cpu().numpy()
     fig, ax = plt.subplots(figsize=(9, 7), constrained_layout=True)
-    colors = plt.cm.tab10(np.arange(10))
+    class_count = int(labels.max().item()) + 1
+    colors = plt.cm.get_cmap("tab20", class_count)(np.arange(class_count))
     for sample in range(sample_count):
         label = labels_np[sample]
         line = projected[:, sample]
@@ -115,7 +116,8 @@ def plot_label_conditioned_samples(images, labels, path, samples_per_class):
     ax.imshow(grid.permute(1, 2, 0).numpy(), cmap="gray", vmin=0, vmax=1)
     ax.axis("off")
     ax.set_title(
-        "Label-conditioned MNIST generation: rows 0 through 9", fontweight="bold"
+        f"Label-conditioned generation: rows 0 through {int(labels.max())}",
+        fontweight="bold",
     )
     fig.savefig(path, dpi=180)
     plt.close(fig)

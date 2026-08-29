@@ -20,6 +20,10 @@ PIPELINES = {
     "mnist_vae": run_vae,
     "mnist_latent_flow": run_latent_flow,
     "mnist_unet_flow": run_unet_flow,
+    "image_classifier": run_classifier,
+    "image_vae": run_vae,
+    "image_latent_flow": run_latent_flow,
+    "image_unet_flow": run_unet_flow,
 }
 
 

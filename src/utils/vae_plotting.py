@@ -21,7 +21,7 @@ def plot_vae_reconstruction(real, reconstructed, path):
     ax.imshow(_grid(combined, nrow=10), cmap="gray", vmin=0, vmax=1)
     ax.axis("off")
     ax.set_title(
-        "Top rows: real MNIST | Bottom rows: VAE reconstruction", fontweight="bold"
+        "Top rows: real images | Bottom rows: VAE reconstruction", fontweight="bold"
     )
     fig.savefig(path, dpi=180)
     plt.close(fig)

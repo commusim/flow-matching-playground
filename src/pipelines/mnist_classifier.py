@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from src.modules.classifier import MNISTClassifier
+from src.modules.classifier import ImageClassifier
 from src.utils.classifier_plotting import plot_confusion_matrix, plot_tsne_features
 from src.utils.common import (
     create_run_dir,
@@ -9,11 +9,15 @@ from src.utils.common import (
     save_run_metadata,
     seed_everything,
 )
-from src.utils.image_data import create_mnist_loader
+from src.utils.image_data import create_image_loader, dataset_spec
 from src.utils.plotting import plot_loss
 
 DEFAULTS = {
     "pipeline": "mnist_classifier",
+    "dataset": "mnist",
+    "image_size": 28,
+    "input_channels": None,
+    "num_classes": None,
     "seed": 42,
     "device": "auto",
     "epochs": 5,
@@ -24,6 +28,8 @@ DEFAULTS = {
     "test_subset_size": 10000,
     "tsne_samples": 1500,
     "checkpoint_path": None,
+    "download": False,
+    "data_root": None,
     "output_root": None,
 }
 
@@ -33,18 +39,27 @@ def run(config):
     seed_everything(cfg["seed"])
     device = get_device(cfg["device"])
     run_dir = create_run_dir(cfg["pipeline"], cfg["seed"], cfg["output_root"])
-    train_loader = create_mnist_loader(
-        project_root() / "data", cfg["batch_size"], True, cfg["subset_size"], False, 0
+    spec = dataset_spec(cfg["dataset"])
+    cfg["input_channels"] = cfg["input_channels"] or spec["channels"]
+    cfg["num_classes"] = cfg["num_classes"] or spec["classes"]
+    common = {
+        "data_root": cfg["data_root"] or project_root() / "data",
+        "batch_size": cfg["batch_size"],
+        "dataset": cfg["dataset"],
+        "image_size": cfg["image_size"],
+        "input_channels": cfg["input_channels"],
+        "download": False,
+        "num_workers": 0,
+    }
+    train_loader = create_image_loader(
+        train=True, subset_size=cfg["subset_size"], **common
     )
-    test_loader = create_mnist_loader(
-        project_root() / "data",
-        cfg["batch_size"],
-        False,
-        cfg["test_subset_size"],
-        False,
-        0,
+    test_loader = create_image_loader(
+        train=False, subset_size=cfg["test_subset_size"], **common
     )
-    model = MNISTClassifier(cfg["feature_dim"]).to(device)
+    model = ImageClassifier(
+        cfg["input_channels"], cfg["feature_dim"], cfg["num_classes"]
+    ).to(device)
     if cfg["checkpoint_path"]:
         model.load_state_dict(torch.load(cfg["checkpoint_path"], map_location=device))
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"])
@@ -62,7 +77,7 @@ def run(config):
             f"epoch {epoch + 1}/{cfg['epochs']} loss {np.mean(losses[-len(train_loader) :]):.5f}"
         )
     model.eval()
-    confusion = np.zeros((10, 10), dtype=np.int64)
+    confusion = np.zeros((cfg["num_classes"], cfg["num_classes"]), dtype=np.int64)
     correct = total = 0
     all_features = []
     all_labels = []

@@ -33,7 +33,10 @@ def infer_model_variant(state):
 
 
 def infer_model_dimensions(state):
-    dimensions = {"hidden": int(state["input.weight"].shape[0])}
+    dimensions = {
+        "hidden": int(state["input.weight"].shape[0]),
+        "input_channels": int(state["input.weight"].shape[1]),
+    }
     if "label_embedding.weight" in state:
         dimensions["classes"] = int(state["label_embedding.weight"].shape[0])
         dimensions["label_dim"] = int(state["label_embedding.weight"].shape[1])
@@ -42,19 +45,24 @@ def infer_model_dimensions(state):
     return dimensions
 
 
-def create_mnist_model(variant, hidden=64, time_dim=32, label_dim=32, classes=10):
+def create_mnist_model(
+    variant, hidden=64, time_dim=32, label_dim=32, classes=10, input_channels=1
+):
     if variant not in MODEL_VARIANTS:
         raise ValueError(
             f"Unknown model variant: {variant}. Available: {', '.join(MODEL_VARIANTS)}"
         )
     model_class = MODEL_VARIANTS[variant]
     if variant == "unconditional":
-        return model_class(hidden=hidden, time_dim=time_dim)
+        return model_class(
+            hidden=hidden, time_dim=time_dim, input_channels=input_channels
+        )
     return model_class(
         hidden=hidden,
         time_dim=time_dim,
         label_dim=label_dim,
         classes=classes,
+        input_channels=input_channels,
     )
 
 

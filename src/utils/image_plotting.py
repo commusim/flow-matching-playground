@@ -23,7 +23,7 @@ def plot_image_overview(real, noise, generated, path):
         ax.imshow(_to_grid(images), cmap="gray", vmin=0, vmax=1)
         ax.set_title(title, fontweight="bold")
         ax.axis("off")
-    fig.suptitle("Pixel-space Flow Matching on MNIST", fontsize=16, fontweight="bold")
+    fig.suptitle("Pixel-space Flow Matching", fontsize=16, fontweight="bold")
     fig.savefig(path, dpi=180)
     plt.close(fig)
 
@@ -83,7 +83,7 @@ def make_image_animation(frames, path, samples=16):
         index = keep[frame_number]
         artist.set_data(_to_grid(frames[index][:samples], columns=4))
         title.set_text(
-            f"MNIST Flow Matching sampling, t={index / (len(frames) - 1):.2f}"
+            f"Image Flow Matching sampling, t={index / (len(frames) - 1):.2f}"
         )
         return artist, title
 
