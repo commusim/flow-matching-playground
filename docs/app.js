@@ -28,6 +28,7 @@ const state = {
   manifold: null,
   velocity: null,
   sprites: {},
+  conditionGrids: {},
 };
 
 function byId(id) {
@@ -329,48 +330,58 @@ function drawSpriteCell(context, image, timeIndex, label, x, y, size) {
 
 function drawMnistConditionGrid() {
   if (!state.predictions) return;
+  const model = byId("condition-grid-model").value;
+  const image = state.conditionGrids[model];
   const canvas = byId("mnist-condition-grid");
   const context = clearCanvas(canvas, "#111111");
-  const modelNames = ["additive", "adagn", "latent", "unet"];
-  const finalTime = state.predictions.times.length - 1;
-  const left = 155;
-  const top = 34;
-  const rowHeight = (canvas.height - 54) / modelNames.length;
-  const cellWidth = (canvas.width - left - 20) / 10;
-  context.font = "bold 13px Arial";
+  const left = 145;
+  const top = 52;
+  const cell = 64;
+  const gap = 5;
+  context.fillStyle = "#eeeeee";
+  context.font = "bold 14px Arial";
   context.textAlign = "center";
-  context.fillStyle = "#d8d8d8";
-  for (let label = 0; label < 10; label += 1) {
+  for (let sample = 0; sample < 4; sample += 1) {
     context.fillText(
-      String(label),
-      left + label * cellWidth + cellWidth / 2,
-      19,
+      `noise ${sample + 1}`,
+      left + sample * (cell + gap) + cell / 2,
+      27,
     );
   }
-  modelNames.forEach((model, row) => {
+  for (let label = 0; label < 10; label += 1) {
     context.fillStyle = "#eeeeee";
-    context.font = "bold 14px Arial";
+    context.font = "bold 15px Arial";
     context.textAlign = "right";
     context.fillText(
-      MODEL_LABELS[model],
-      left - 14,
-      top + row * rowHeight + rowHeight / 2 + 5,
+      `Label ${label}`,
+      left - 18,
+      top + label * (cell + gap) + cell / 2 + 5,
     );
-    for (let label = 0; label < 10; label += 1) {
-      const size = Math.min(rowHeight - 18, cellWidth - 8);
-      const x = left + label * cellWidth + (cellWidth - size) / 2;
-      const y = top + row * rowHeight + (rowHeight - size) / 2;
-      drawSpriteCell(
-        context,
-        state.sprites[model],
-        finalTime,
-        label,
+    for (let sample = 0; sample < 4; sample += 1) {
+      const x = left + sample * (cell + gap);
+      const y = top + label * (cell + gap);
+      context.imageSmoothingEnabled = false;
+      context.drawImage(
+        image,
+        sample * 28,
+        label * 28,
+        28,
+        28,
         x,
         y,
-        size,
+        cell,
+        cell,
       );
     }
-  });
+  }
+  context.fillStyle = "#bbbbbb";
+  context.font = "12px Arial";
+  context.textAlign = "left";
+  context.fillText(
+    `${MODEL_LABELS[model]}：每个Label使用4个不同初始噪声`,
+    left + 4 * (cell + gap) + 28,
+    top + 22,
+  );
 }
 
 function drawMnistComparison() {
@@ -495,9 +506,9 @@ function drawRealClusters(context, mapper, points, labels, alpha = 0.3) {
   });
 }
 
-function getManifoldExtent() {
-  const collections = [state.manifold.real.points];
-  Object.values(state.manifold.models).forEach((model) => {
+function getManifoldExtent(reduction) {
+  const collections = [reduction.real.points];
+  Object.values(reduction.models).forEach((model) => {
     model.forEach((time) => collections.push(time));
   });
   return paddedExtent(collections, 0.06);
@@ -505,24 +516,33 @@ function getManifoldExtent() {
 
 function drawManifold() {
   if (!state.manifold) return;
+  const reducer = byId("manifold-reducer").value;
+  const reduction = state.manifold.reducers[reducer];
   const model = byId("manifold-model").value;
   const label = Number(byId("manifold-label").value);
   const timeIndex = Number(byId("manifold-time").value);
   const canvas = byId("manifold-canvas");
   const context = clearCanvas(canvas);
-  const extent = getManifoldExtent();
+  const extent = getManifoldExtent(reduction);
   const mapper = createMapper(canvas, extent, 62);
-  drawAxes(context, canvas, extent, mapper, "shared t-SNE 1", "shared t-SNE 2");
+  drawAxes(
+    context,
+    canvas,
+    extent,
+    mapper,
+    `${reducer.toUpperCase()} 1`,
+    `${reducer.toUpperCase()} 2`,
+  );
   drawRealClusters(
     context,
     mapper,
-    state.manifold.real.points,
-    state.manifold.real.labels,
+    reduction.real.points,
+    reduction.real.labels,
     0.32,
   );
 
   const expected = state.manifold.expected_labels;
-  const modelPoints = state.manifold.models[model];
+  const modelPoints = reduction.models[model];
   const selected = expected
     .map((value, index) => (value === label ? index : -1))
     .filter((index) => index >= 0);
@@ -561,47 +581,95 @@ function drawManifold() {
     state.manifold.times[timeIndex].toFixed(3);
 }
 
-function getVelocityExtent() {
-  const collections = [state.velocity.real.points];
-  Object.values(state.velocity.models).forEach((model) => {
-    model.centroids.forEach((time) => collections.push(time));
+function labelCentroid(points, expectedLabels, label) {
+  const centroid = [0, 0];
+  let count = 0;
+  points.forEach((point, index) => {
+    if (expectedLabels[index] !== label) return;
+    centroid[0] += point[0];
+    centroid[1] += point[1];
+    count += 1;
+  });
+  return [centroid[0] / count, centroid[1] / count];
+}
+
+function getVelocityExtent(reducer) {
+  if (reducer === "pca") {
+    const collections = [state.velocity.real.points];
+    Object.values(state.velocity.models).forEach((model) => {
+      model.centroids.forEach((time) => collections.push(time));
+    });
+    return paddedExtent(collections, 0.08);
+  }
+  const reduction = state.manifold.reducers[reducer];
+  const collections = [reduction.real.points];
+  Object.values(reduction.models).forEach((model) => {
+    model.forEach((time) => collections.push(time));
   });
   return paddedExtent(collections, 0.08);
 }
 
 function drawVelocity() {
-  if (!state.velocity) return;
+  if (!state.velocity || !state.manifold) return;
+  const reducer = byId("velocity-reducer").value;
   const model = byId("velocity-model").value;
   const timeIndex = Number(byId("velocity-time").value);
   const canvas = byId("velocity-canvas");
   const context = clearCanvas(canvas);
-  const extent = getVelocityExtent();
+  const extent = getVelocityExtent(reducer);
   const mapper = createMapper(canvas, extent, 62);
+  const axisPrefix =
+    reducer === "pca" ? "classifier feature PCA" : reducer.toUpperCase();
   drawAxes(
     context,
     canvas,
     extent,
     mapper,
-    "classifier feature PCA 1",
-    "classifier feature PCA 2",
+    `${axisPrefix} 1`,
+    `${axisPrefix} 2`,
   );
-  drawRealClusters(
-    context,
-    mapper,
-    state.velocity.real.points,
-    state.velocity.real.labels,
-    0.28,
-  );
-  const data = state.velocity.models[model];
-  const visualHorizon = 0.12;
+
+  let realPoints;
+  let realLabels;
+  if (reducer === "pca") {
+    realPoints = state.velocity.real.points;
+    realLabels = state.velocity.real.labels;
+  } else {
+    realPoints = state.manifold.reducers[reducer].real.points;
+    realLabels = state.manifold.reducers[reducer].real.labels;
+  }
+  drawRealClusters(context, mapper, realPoints, realLabels, 0.28);
+
   for (let label = 0; label < 10; label += 1) {
-    const point = data.centroids[timeIndex][label];
-    const velocity = data.velocity[timeIndex][label];
+    let point;
+    let change;
+    if (reducer === "pca") {
+      const data = state.velocity.models[model];
+      point = data.centroids[timeIndex][label];
+      const velocity = data.velocity[timeIndex][label];
+      const visualHorizon = 0.12;
+      change = [velocity[0] * visualHorizon, velocity[1] * visualHorizon];
+    } else {
+      const reduction = state.manifold.reducers[reducer];
+      const points = reduction.models[model];
+      point = labelCentroid(
+        points[timeIndex],
+        state.manifold.expected_labels,
+        label,
+      );
+      const next = labelCentroid(
+        points[timeIndex + 1],
+        state.manifold.expected_labels,
+        label,
+      );
+      const visualScale = reducer === "umap" ? 2.0 : 1.65;
+      change = [
+        (next[0] - point[0]) * visualScale,
+        (next[1] - point[1]) * visualScale,
+      ];
+    }
     const start = mapper(point);
-    const end = mapper([
-      point[0] + velocity[0] * visualHorizon,
-      point[1] + velocity[1] * visualHorizon,
-    ]);
+    const end = mapper([point[0] + change[0], point[1] + change[1]]);
     context.fillStyle = COLORS[label];
     context.beginPath();
     context.arc(start[0], start[1], 4.2, 0, Math.PI * 2);
@@ -621,6 +689,12 @@ function drawVelocity() {
   byId("velocity-time-value").textContent =
     `${state.velocity.times[timeIndex].toFixed(3)} → ` +
     state.velocity.times[timeIndex + 1].toFixed(3);
+  const notes = {
+    pca: "PCA为线性映射：箭头是128维语义速度在同一线性基底中的投影，可解释方向与相对变化。",
+    umap: "UMAP为非线性映射：箭头表示相邻时间点的UMAP嵌入位移，用于观察流形邻域变化，不作为严格速度向量。",
+    tsne: "t-SNE为非线性局部投影：箭头表示相邻嵌入位移，可能出现投影放大或方向扭曲。",
+  };
+  byId("velocity-reducer-note").textContent = notes[reducer];
 }
 
 function drawMetric() {
@@ -708,14 +782,21 @@ function attachInteractions() {
   ["conditional-mode", "conditional-time", "conditional-arrows"].forEach((id) =>
     byId(id).addEventListener("input", drawConditional),
   );
+  byId("condition-grid-model").addEventListener(
+    "input",
+    drawMnistConditionGrid,
+  );
   byId("comparison-label").addEventListener("input", drawMnistComparison);
   ["mnist-model", "mnist-label", "mnist-time"].forEach((id) =>
     byId(id).addEventListener("input", drawMnist),
   );
-  ["manifold-model", "manifold-label", "manifold-time"].forEach((id) =>
-    byId(id).addEventListener("input", drawManifold),
-  );
-  ["velocity-model", "velocity-time"].forEach((id) =>
+  [
+    "manifold-reducer",
+    "manifold-model",
+    "manifold-label",
+    "manifold-time",
+  ].forEach((id) => byId(id).addEventListener("input", drawManifold));
+  ["velocity-reducer", "velocity-model", "velocity-time"].forEach((id) =>
     byId(id).addEventListener("input", drawVelocity),
   );
   byId("metric-select").addEventListener("input", drawMetric);
@@ -732,26 +813,43 @@ async function initialize() {
       adagn,
       latent,
       unet,
+      additiveConditions,
+      adagnConditions,
+      latentConditions,
+      unetConditions,
     ] = await Promise.all([
       loadJson("assets/flow_2d.json"),
       loadJson("assets/mnist_predictions.json"),
-      loadJson("assets/semantic_tsne.json"),
+      loadJson("assets/semantic_reductions.json"),
       loadJson("assets/semantic_velocity.json"),
       loadImage("assets/mnist_additive_sprites.png"),
       loadImage("assets/mnist_adagn_sprites.png"),
       loadImage("assets/mnist_latent_sprites.png"),
       loadImage("assets/mnist_unet_sprites.png"),
+      loadImage("assets/mnist_additive_conditions.png"),
+      loadImage("assets/mnist_adagn_conditions.png"),
+      loadImage("assets/mnist_latent_conditions.png"),
+      loadImage("assets/mnist_unet_conditions.png"),
     ]);
     state.flow = flow;
     state.predictions = predictions;
     state.manifold = manifold;
     state.velocity = velocity;
     state.sprites = { additive, adagn, latent, unet };
+    state.conditionGrids = {
+      additive: additiveConditions,
+      adagn: adagnConditions,
+      latent: latentConditions,
+      unet: unetConditions,
+    };
 
     populateNumericSelect(byId("comparison-label"), 10);
     populateNumericSelect(byId("mnist-label"), 10);
     populateNumericSelect(byId("manifold-label"), 10);
-    populateModelSelect(byId("manifold-model"), Object.keys(manifold.models));
+    populateModelSelect(
+      byId("manifold-model"),
+      Object.keys(manifold.reducers.pca.models),
+    );
     populateModelSelect(byId("velocity-model"), Object.keys(velocity.models));
     byId("manifold-model").value = "conditional_unet";
     byId("velocity-model").value = "conditional_unet";

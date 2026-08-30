@@ -408,12 +408,19 @@
               \(t=1\)。</span
             >
           </figcaption>
-          <div class="canvas-frame comparison-filmstrip">
-            <canvas
-              id="mnist-condition-grid"
-              width="1200"
-              height="500"
-            ></canvas>
+          <div class="control-row">
+            <label
+              >模型
+              <select id="condition-grid-model">
+                <option value="additive">入口加法条件CNN</option>
+                <option value="adagn">AdaGN条件CNN</option>
+                <option value="latent">VAE latent Flow</option>
+                <option value="unet" selected>条件U-Net Flow</option>
+              </select>
+            </label>
+          </div>
+          <div class="canvas-frame comparison-filmstrip condition-grid-frame">
+            <canvas id="mnist-condition-grid" width="900" height="780"></canvas>
           </div>
         </figure>
 
@@ -508,7 +515,9 @@
             <div class="math-block">
               \[ f_t=C_{\mathrm{encoder}}(x_t)\in\mathbb R^{128}. \]
             </div>
-            <p>共享t-SNE用于观察真实类别簇与生成样本的邻域关系。</p>
+            <p>
+              PCA用于线性连续轨迹，UMAP用于非线性流形邻域，t-SNE用于局部类别簇观察。
+            </p>
           </article>
           <div class="supporting-evidence">
             <article>
@@ -532,12 +541,20 @@
         <figure class="interactive-panel scientific-figure">
           <span class="panel-label">d</span>
           <figcaption>
-            <strong>共享t-SNE中的生成位置</strong
+            <strong>PCA / UMAP / t-SNE中的生成位置</strong
             ><span
               >背景为真实类别簇；10条细线分别追踪同一目标Label下10个不同初始噪声的41步轨迹。</span
             >
           </figcaption>
           <div class="control-row">
+            <label
+              >降维方式
+              <select id="manifold-reducer">
+                <option value="pca">PCA（线性、适合轨迹）</option>
+                <option value="umap" selected>UMAP（非线性流形）</option>
+                <option value="tsne">t-SNE（局部类别簇）</option>
+              </select>
+            </label>
             <label
               >模型
               <select id="manifold-model"></select
@@ -562,8 +579,8 @@
           <div class="canvas-frame">
             <canvas id="manifold-canvas" width="940" height="620"></canvas>
           </div>
-          <p class="dynamic-note">
-            每条细线对应一个独立初始噪声。t-SNE是非线性邻域投影，局部折线跳变可能来自降维形变；可解释的速度方向请以随后的线性PCA速度场为准。
+          <p id="manifold-reducer-note" class="dynamic-note">
+            PCA是线性投影，最适合观察连续轨迹；UMAP强调非线性流形邻域；t-SNE强调局部类别簇，折线不宜作速度解释。
           </p>
         </figure>
 
@@ -576,6 +593,14 @@
             >
           </figcaption>
           <div class="control-row">
+            <label
+              >降维方式
+              <select id="velocity-reducer">
+                <option value="pca" selected>PCA（线性速度投影）</option>
+                <option value="umap">UMAP（嵌入位移）</option>
+                <option value="tsne">t-SNE（嵌入位移）</option>
+              </select>
+            </label>
             <label
               >模型
               <select id="velocity-model"></select
@@ -596,6 +621,9 @@
           <div class="canvas-frame">
             <canvas id="velocity-canvas" width="940" height="620"></canvas>
           </div>
+          <p id="velocity-reducer-note" class="dynamic-note">
+            PCA箭头是128维分类器语义速度的线性投影；UMAP和t-SNE箭头表示相邻时间点在非线性嵌入中的有限位移。
+          </p>
         </figure>
 
         <figure class="interactive-panel scientific-figure supporting-figure">

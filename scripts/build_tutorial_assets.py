@@ -15,6 +15,7 @@ import torch
 from PIL import Image
 from torch import nn
 from sklearn.manifold import TSNE
+from umap import UMAP
 
 from src.modules.velocity import ConditionalVelocityMLP
 from src.modules.trajectory_model_loader import (
@@ -223,6 +224,24 @@ def save_sprite(frames, path):
     Image.fromarray(canvas, mode="L").save(path)
 
 
+def save_condition_grid(images, path):
+    canvas = np.zeros((10 * 28, 4 * 28), dtype=np.uint8)
+    values = (
+        ((images[:, 0].clamp(-1, 1) + 1) * 127.5)
+        .detach()
+        .cpu()
+        .numpy()
+        .astype(np.uint8)
+    )
+    for label in range(10):
+        for sample in range(4):
+            index = label * 4 + sample
+            canvas[label * 28 : (label + 1) * 28, sample * 28 : (sample + 1) * 28] = (
+                values[index]
+            )
+    Image.fromarray(canvas, mode="L").save(path)
+
+
 def build_mnist_assets():
     classifier = load_classifier(
         ROOT / "outputs/mnist_classifier/20260829_154612_seed42/checkpoint.pt", DEVICE
@@ -273,6 +292,19 @@ def build_mnist_assets():
     (ASSETS / "mnist_predictions.json").write_text(
         json.dumps(predictions, separators=(",", ":")), encoding="utf-8"
     )
+    condition_labels = torch.arange(10, dtype=torch.long).repeat_interleave(4)
+    condition_generator = torch.Generator().manual_seed(2030)
+    condition_noise = torch.randn(4, 1, 28, 28, generator=condition_generator).repeat(
+        10, 1, 1, 1
+    )
+    condition_sets = {
+        "additive": pixel_frames(additive, condition_noise, condition_labels),
+        "adagn": pixel_frames(adagn, condition_noise, condition_labels),
+        "latent": latent_frames(latent, vae, condition_labels),
+        "unet": unet_frames(unet, condition_noise, condition_labels),
+    }
+    for name, frames in condition_sets.items():
+        save_condition_grid(frames[-1], ASSETS / f"mnist_{name}_conditions.png")
 
 
 def build_manifold_assets():
@@ -326,37 +358,6 @@ def build_manifold_assets():
                 batches.append(features.cpu().numpy())
             semantic_features[name] = np.stack(batches)
     model_names = list(semantic_features)
-    combined_for_tsne = np.concatenate(
-        [real_features[keep]]
-        + [semantic_features[name].reshape(-1, 128) for name in model_names]
-    )
-    embedding = TSNE(
-        n_components=2,
-        perplexity=30,
-        init="pca",
-        learning_rate="auto",
-        random_state=42,
-    ).fit_transform(combined_for_tsne)
-    offset = len(keep)
-    manifold = {
-        "times": rounded(TIMES),
-        "real": {
-            "points": rounded(embedding[:offset]),
-            "labels": real_labels[keep].tolist(),
-        },
-        "expected_labels": labels.tolist(),
-        "samples_per_class": 10,
-        "models": {},
-    }
-    for name in model_names:
-        size = len(TIMES) * len(labels)
-        manifold["models"][name] = rounded(
-            embedding[offset : offset + size].reshape(len(TIMES), len(labels), 2)
-        )
-        offset += size
-    (ASSETS / "semantic_tsne.json").write_text(
-        json.dumps(manifold, separators=(",", ":")), encoding="utf-8"
-    )
     all_semantic = np.concatenate(
         [real_features]
         + [semantic_features[name].reshape(-1, 128) for name in model_names]
@@ -367,6 +368,62 @@ def build_manifold_assets():
 
     def project(value):
         return (value - mean) @ basis
+
+    combined = np.concatenate(
+        [real_features[keep]]
+        + [semantic_features[name].reshape(-1, 128) for name in model_names]
+    )
+    pca_embedding = project(combined)
+    umap_embedding = UMAP(
+        n_neighbors=30,
+        min_dist=0.08,
+        metric="euclidean",
+        random_state=42,
+        n_jobs=1,
+    ).fit_transform(combined)
+    tsne_embedding = TSNE(
+        n_components=2,
+        perplexity=30,
+        init="pca",
+        learning_rate="auto",
+        max_iter=1000,
+        method="barnes_hut",
+        random_state=42,
+    ).fit_transform(combined)
+
+    def split_embedding(embedding):
+        offset = len(keep)
+        reduction = {
+            "real": {
+                "points": rounded(embedding[:offset]),
+                "labels": real_labels[keep].tolist(),
+            },
+            "models": {},
+        }
+        for name in model_names:
+            size = len(TIMES) * len(labels)
+            reduction["models"][name] = rounded(
+                embedding[offset : offset + size].reshape(len(TIMES), len(labels), 2)
+            )
+            offset += size
+        return reduction
+
+    reductions = {
+        "times": rounded(TIMES),
+        "expected_labels": labels.tolist(),
+        "samples_per_class": 10,
+        "reducers": {
+            "pca": split_embedding(pca_embedding),
+            "umap": split_embedding(umap_embedding),
+            "tsne": split_embedding(tsne_embedding),
+        },
+    }
+    (ASSETS / "semantic_reductions.json").write_text(
+        json.dumps(reductions, separators=(",", ":")), encoding="utf-8"
+    )
+    old_tsne = ASSETS / "semantic_tsne.json"
+    if old_tsne.exists():
+        old_tsne.unlink()
 
     real_projected = project(real_features)
     velocity_asset = {
