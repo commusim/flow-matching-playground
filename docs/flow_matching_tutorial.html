@@ -402,6 +402,24 @@
         <figure class="interactive-panel scientific-figure wide-figure">
           <span class="panel-label">a</span>
           <figcaption>
+            <strong>四种模型在不同Label条件下的最终生成</strong>
+            <span
+              >每一行是一种模型，每一列是目标Label 0–9；所有图像取自
+              \(t=1\)。</span
+            >
+          </figcaption>
+          <div class="canvas-frame comparison-filmstrip">
+            <canvas
+              id="mnist-condition-grid"
+              width="1200"
+              height="500"
+            ></canvas>
+          </div>
+        </figure>
+
+        <figure class="interactive-panel scientific-figure wide-figure">
+          <span class="panel-label">b</span>
+          <figcaption>
             <strong>四种模型的横向时间演进</strong>
             <span
               >选择一个目标Label，每一行对应一种模型；列从 \(t=0\) 演进到
@@ -420,7 +438,7 @@
         </figure>
 
         <figure class="interactive-panel scientific-figure">
-          <span class="panel-label">b</span>
+          <span class="panel-label">c</span>
           <figcaption>
             <strong>单模型、单Label的细粒度演进</strong>
             <span>41个时间点可交互；分类器预测用于判断语义何时形成。</span>
@@ -515,7 +533,9 @@
           <span class="panel-label">d</span>
           <figcaption>
             <strong>共享t-SNE中的生成位置</strong
-            ><span>背景为真实类别簇；彩色点为所选Label的生成样本。</span>
+            ><span
+              >背景为真实类别簇；10条细线分别追踪同一目标Label下10个不同初始噪声的41步轨迹。</span
+            >
           </figcaption>
           <div class="control-row">
             <label
@@ -542,13 +562,18 @@
           <div class="canvas-frame">
             <canvas id="manifold-canvas" width="940" height="620"></canvas>
           </div>
+          <p class="dynamic-note">
+            每条细线对应一个独立初始噪声。t-SNE是非线性邻域投影，局部折线跳变可能来自降维形变；可解释的速度方向请以随后的线性PCA速度场为准。
+          </p>
         </figure>
 
         <figure class="interactive-panel scientific-figure">
           <span class="panel-label">e</span>
           <figcaption>
             <strong>分类器特征流形中的速度场</strong
-            ><span>位置和速度使用同一个线性PCA投影，箭头可以作方向解释。</span>
+            ><span
+              >位置和速度使用同一个线性PCA投影。箭头为增强可读性按固定视觉时间尺度放大，方向仍对应真实语义速度。</span
+            >
           </figcaption>
           <div class="control-row">
             <label

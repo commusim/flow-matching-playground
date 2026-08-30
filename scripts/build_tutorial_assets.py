@@ -283,15 +283,15 @@ def build_manifold_assets():
     real_features = reference["real_features"]
     real_labels = reference["real_labels"]
     keep = np.concatenate(
-        [np.where(real_labels == label)[0][:50] for label in range(10)]
+        [np.where(real_labels == label)[0][:150] for label in range(10)]
     )
     classifier = load_classifier(
         ROOT / "outputs/mnist_classifier/20260829_154612_seed42/checkpoint.pt",
         DEVICE,
     )
-    labels = torch.arange(10, dtype=torch.long).repeat_interleave(3)
+    labels = torch.arange(10, dtype=torch.long).repeat_interleave(10)
     generator = torch.Generator().manual_seed(2048)
-    base_noise = torch.randn(3, 1, 28, 28, generator=generator)
+    base_noise = torch.randn(10, 1, 28, 28, generator=generator)
     shared_noise = base_noise.repeat(10, 1, 1, 1)
     additive, _ = load_pixel_conditional(
         ROOT / "outputs/mnist_conditional_flow/20260829_135059_seed42/checkpoint.pt",
@@ -345,6 +345,7 @@ def build_manifold_assets():
             "labels": real_labels[keep].tolist(),
         },
         "expected_labels": labels.tolist(),
+        "samples_per_class": 10,
         "models": {},
     }
     for name in model_names:

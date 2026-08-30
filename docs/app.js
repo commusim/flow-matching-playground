@@ -127,11 +127,11 @@ function drawAxes(context, canvas, extent, mapper, xLabel, yLabel) {
   context.fillText(maxY.toFixed(1), 50, mapper([minX, maxY])[1] + 4);
 }
 
-function drawArrow(context, start, change, color, head = 4) {
+function drawArrow(context, start, change, color, head = 4, width = 1.15) {
   const end = [start[0] + change[0], start[1] + change[1]];
   context.strokeStyle = color;
   context.fillStyle = color;
-  context.lineWidth = 1.15;
+  context.lineWidth = width;
   context.beginPath();
   context.moveTo(start[0], start[1]);
   context.lineTo(end[0], end[1]);
@@ -173,7 +173,7 @@ function drawFlowContent(
   data.target.forEach((point) => {
     const [x, y] = mapper(point);
     context.beginPath();
-    context.arc(x, y, 2.1, 0, Math.PI * 2);
+    context.arc(x, y, 2.7, 0, Math.PI * 2);
     context.fill();
   });
 
@@ -327,6 +327,52 @@ function drawSpriteCell(context, image, timeIndex, label, x, y, size) {
   );
 }
 
+function drawMnistConditionGrid() {
+  if (!state.predictions) return;
+  const canvas = byId("mnist-condition-grid");
+  const context = clearCanvas(canvas, "#111111");
+  const modelNames = ["additive", "adagn", "latent", "unet"];
+  const finalTime = state.predictions.times.length - 1;
+  const left = 155;
+  const top = 34;
+  const rowHeight = (canvas.height - 54) / modelNames.length;
+  const cellWidth = (canvas.width - left - 20) / 10;
+  context.font = "bold 13px Arial";
+  context.textAlign = "center";
+  context.fillStyle = "#d8d8d8";
+  for (let label = 0; label < 10; label += 1) {
+    context.fillText(
+      String(label),
+      left + label * cellWidth + cellWidth / 2,
+      19,
+    );
+  }
+  modelNames.forEach((model, row) => {
+    context.fillStyle = "#eeeeee";
+    context.font = "bold 14px Arial";
+    context.textAlign = "right";
+    context.fillText(
+      MODEL_LABELS[model],
+      left - 14,
+      top + row * rowHeight + rowHeight / 2 + 5,
+    );
+    for (let label = 0; label < 10; label += 1) {
+      const size = Math.min(rowHeight - 18, cellWidth - 8);
+      const x = left + label * cellWidth + (cellWidth - size) / 2;
+      const y = top + row * rowHeight + (rowHeight - size) / 2;
+      drawSpriteCell(
+        context,
+        state.sprites[model],
+        finalTime,
+        label,
+        x,
+        y,
+        size,
+      );
+    }
+  });
+}
+
 function drawMnistComparison() {
   if (!state.predictions) return;
   const label = Number(byId("comparison-label").value);
@@ -424,7 +470,7 @@ function drawMnist() {
   byId("mnist-explanation").textContent = descriptions[model];
 }
 
-function drawRealClusters(context, mapper, points, labels, alpha = 0.18) {
+function drawRealClusters(context, mapper, points, labels, alpha = 0.3) {
   const centroids = Array.from({ length: 10 }, () => [0, 0, 0]);
   points.forEach((point, index) => {
     const label = labels[index];
@@ -432,7 +478,7 @@ function drawRealClusters(context, mapper, points, labels, alpha = 0.18) {
     context.globalAlpha = alpha;
     context.fillStyle = COLORS[label];
     context.beginPath();
-    context.arc(x, y, 2.1, 0, Math.PI * 2);
+    context.arc(x, y, 2.7, 0, Math.PI * 2);
     context.fill();
     context.globalAlpha = 1;
     centroids[label][0] += point[0];
@@ -472,6 +518,7 @@ function drawManifold() {
     mapper,
     state.manifold.real.points,
     state.manifold.real.labels,
+    0.32,
   );
 
   const expected = state.manifold.expected_labels;
@@ -479,35 +526,35 @@ function drawManifold() {
   const selected = expected
     .map((value, index) => (value === label ? index : -1))
     .filter((index) => index >= 0);
-  const centroidPath = [];
-  for (let time = 0; time <= timeIndex; time += 1) {
-    const centroid = [0, 0];
-    selected.forEach((sample) => {
-      centroid[0] += modelPoints[time][sample][0];
-      centroid[1] += modelPoints[time][sample][1];
-    });
-    centroidPath.push([
-      centroid[0] / selected.length,
-      centroid[1] / selected.length,
-    ]);
-  }
-  context.strokeStyle = COLORS[label];
-  context.lineWidth = 2;
-  context.beginPath();
-  centroidPath.forEach((point, index) => {
-    const [x, y] = mapper(point);
-    if (index === 0) context.moveTo(x, y);
-    else context.lineTo(x, y);
-  });
-  context.stroke();
-  modelPoints[timeIndex].forEach((point, index) => {
-    if (expected[index] !== label) return;
-    const [x, y] = mapper(point);
+
+  selected.forEach((sample, trackIndex) => {
+    context.strokeStyle = COLORS[label];
+    context.globalAlpha =
+      0.3 + (trackIndex / Math.max(selected.length - 1, 1)) * 0.42;
+    context.lineWidth = 1.2;
+    context.beginPath();
+    for (let time = 0; time <= timeIndex; time += 1) {
+      const [x, y] = mapper(modelPoints[time][sample]);
+      if (time === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.stroke();
+    const start = mapper(modelPoints[0][sample]);
     context.fillStyle = COLORS[label];
     context.beginPath();
-    context.arc(x, y, 5, 0, Math.PI * 2);
+    context.arc(start[0], start[1], 2.7, 0, Math.PI * 2);
     context.fill();
-    context.strokeStyle = "white";
+  });
+  context.globalAlpha = 1;
+
+  selected.forEach((sample) => {
+    const [x, y] = mapper(modelPoints[timeIndex][sample]);
+    context.fillStyle = COLORS[label];
+    context.beginPath();
+    context.arc(x, y, 5.2, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = "#ffffff";
+    context.lineWidth = 1.2;
     context.stroke();
   });
   byId("manifold-time-value").textContent =
@@ -543,36 +590,33 @@ function drawVelocity() {
     mapper,
     state.velocity.real.points,
     state.velocity.real.labels,
-    0.16,
+    0.28,
   );
   const data = state.velocity.models[model];
+  const visualHorizon = 0.12;
   for (let label = 0; label < 10; label += 1) {
     const point = data.centroids[timeIndex][label];
     const velocity = data.velocity[timeIndex][label];
-    const dt =
-      state.velocity.times[timeIndex + 1] - state.velocity.times[timeIndex];
     const start = mapper(point);
     const end = mapper([
-      point[0] + velocity[0] * dt,
-      point[1] + velocity[1] * dt,
+      point[0] + velocity[0] * visualHorizon,
+      point[1] + velocity[1] * visualHorizon,
     ]);
     context.fillStyle = COLORS[label];
     context.beginPath();
-    context.moveTo(start[0], start[1] - 7);
-    context.lineTo(start[0] - 6, start[1] + 5);
-    context.lineTo(start[0] + 6, start[1] + 5);
-    context.closePath();
+    context.arc(start[0], start[1], 4.2, 0, Math.PI * 2);
     context.fill();
     drawArrow(
       context,
       start,
       [end[0] - start[0], end[1] - start[1]],
       COLORS[label],
-      5,
+      8,
+      2.6,
     );
     context.fillStyle = COLORS[label];
-    context.font = "bold 11px Arial";
-    context.fillText(String(label), end[0] + 7, end[1] - 5);
+    context.font = "bold 12px Arial";
+    context.fillText(String(label), end[0] + 8, end[1] - 7);
   }
   byId("velocity-time-value").textContent =
     `${state.velocity.times[timeIndex].toFixed(3)} → ` +
@@ -723,6 +767,7 @@ async function initialize() {
     attachInteractions();
     drawUnconditional();
     drawConditional();
+    drawMnistConditionGrid();
     drawMnistComparison();
     drawMnist();
     drawManifold();
