@@ -26,47 +26,185 @@ def joint_tsne(feature_sets, seed=42, perplexity=30):
     return result
 
 
-def plot_joint_trajectories(embeddings, labels, time_count, path):
+def _limits(*point_sets):
+    points = np.concatenate(point_sets, axis=0)
+    margin_x = max(1.0, (points[:, 0].max() - points[:, 0].min()) * 0.05)
+    margin_y = max(1.0, (points[:, 1].max() - points[:, 1].min()) * 0.05)
+    return (
+        points[:, 0].min() - margin_x,
+        points[:, 0].max() + margin_x,
+        points[:, 1].min() - margin_y,
+        points[:, 1].max() + margin_y,
+    )
+
+
+def _real_background(ax, real_points, real_labels, class_count):
+    colors = plt.cm.get_cmap("tab20", class_count)(np.arange(class_count))
+    for label in range(class_count):
+        selected = real_points[real_labels == label]
+        ax.scatter(
+            selected[:, 0],
+            selected[:, 1],
+            color=colors[label],
+            s=8,
+            alpha=0.12,
+            edgecolors="none",
+        )
+        centroid = selected.mean(axis=0)
+        ax.text(
+            centroid[0],
+            centroid[1],
+            str(label),
+            color=colors[label],
+            fontsize=11,
+            fontweight="bold",
+            bbox={"facecolor": "white", "alpha": 0.55, "edgecolor": "none"},
+        )
+    return colors
+
+
+def plot_centroid_trajectories_with_reference(
+    embeddings,
+    real_embedding,
+    real_labels,
+    expected_labels,
+    final_predictions,
+    final_known,
+    time_count,
+    path,
+):
     names = list(embeddings)
     columns = 2
     rows = int(np.ceil(len(names) / columns))
     fig, axes = plt.subplots(
-        rows, columns, figsize=(14, 6.5 * rows), squeeze=False, constrained_layout=True
+        rows,
+        columns,
+        figsize=(15, 7 * rows),
+        squeeze=False,
+        constrained_layout=True,
     )
-    colors = plt.cm.tab10(np.arange(10))
-    all_points = np.concatenate(list(embeddings.values()), axis=0)
-    limits = (
-        all_points[:, 0].min(),
-        all_points[:, 0].max(),
-        all_points[:, 1].min(),
-        all_points[:, 1].max(),
-    )
-    sample_count = len(labels)
+    class_count = int(max(real_labels.max(), expected_labels.max())) + 1
+    all_generated = np.concatenate(list(embeddings.values()), axis=0)
+    limits = _limits(real_embedding, all_generated)
+    sample_count = len(expected_labels)
+    unique_labels = np.unique(expected_labels)
     for ax, name in zip(axes.ravel(), names):
+        colors = _real_background(ax, real_embedding, real_labels, class_count)
         points = embeddings[name].reshape(time_count, sample_count, 2)
-        for sample, label in enumerate(labels):
-            trajectory = points[:, sample]
+        predictions = final_predictions[name]
+        known = final_known[name]
+        for label in unique_labels:
+            mask = expected_labels == label
+            centroid = points[:, mask].mean(axis=1)
             ax.plot(
-                trajectory[:, 0],
-                trajectory[:, 1],
+                centroid[:, 0],
+                centroid[:, 1],
                 color=colors[label],
-                alpha=0.5,
-                linewidth=1.1,
+                linewidth=2.3,
+                marker="o",
+                markersize=3,
             )
-            ax.scatter(trajectory[0, 0], trajectory[0, 1], color="#64748B", s=15)
-            ax.scatter(trajectory[-1, 0], trajectory[-1, 1], color=colors[label], s=28)
-            ax.text(trajectory[-1, 0], trajectory[-1, 1], str(label), fontsize=7)
-        ax.set_title(name, fontweight="bold")
-        ax.set_xlim(limits[0], limits[1])
-        ax.set_ylim(limits[2], limits[3])
-        ax.grid(alpha=0.18)
-        ax.set_xlabel("shared t-SNE 1")
-        ax.set_ylabel("shared t-SNE 2")
+            ax.scatter(
+                centroid[0, 0],
+                centroid[0, 1],
+                color=colors[label],
+                marker="^",
+                s=42,
+                edgecolors="black",
+                linewidths=0.5,
+                zorder=5,
+            )
+            known_predictions = predictions[mask & known]
+            if len(known_predictions):
+                majority = int(
+                    np.bincount(known_predictions, minlength=class_count).argmax()
+                )
+                terminal_text = f"target {label}→pred {majority}"
+            else:
+                terminal_text = f"target {label}→unknown"
+            ax.text(centroid[-1, 0], centroid[-1, 1], terminal_text, fontsize=7)
+        ax.set(
+            title=name,
+            xlim=limits[:2],
+            ylim=limits[2:],
+            xlabel="shared t-SNE 1",
+            ylabel="shared t-SNE 2",
+        )
+        ax.grid(alpha=0.15)
     for ax in axes.ravel()[len(names) :]:
         ax.axis("off")
     fig.suptitle(
-        "Classifier-semantic trajectories using one jointly fitted t-SNE",
+        "Label-colored starts and classifier-semantic trajectories against real clusters",
         fontsize=16,
+        fontweight="bold",
+    )
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def plot_final_predictions_with_reference(
+    embeddings,
+    real_embedding,
+    real_labels,
+    expected_labels,
+    predictions,
+    known_masks,
+    time_count,
+    path,
+):
+    names = list(embeddings)
+    fig, axes = plt.subplots(
+        1,
+        len(names),
+        figsize=(5.2 * len(names), 5),
+        squeeze=False,
+        constrained_layout=True,
+    )
+    class_count = int(max(real_labels.max(), expected_labels.max())) + 1
+    all_endpoints = [
+        embeddings[name].reshape(time_count, len(expected_labels), 2)[-1]
+        for name in names
+    ]
+    limits = _limits(real_embedding, *all_endpoints)
+    for ax, name, endpoints in zip(axes.ravel(), names, all_endpoints):
+        colors = _real_background(ax, real_embedding, real_labels, class_count)
+        predicted = predictions[name]
+        known = known_masks[name]
+        correct = known & (predicted == expected_labels)
+        incorrect = known & (predicted != expected_labels)
+        for mask, marker, size in ((correct, "o", 38), (incorrect, "s", 42)):
+            if mask.any():
+                ax.scatter(
+                    endpoints[mask, 0],
+                    endpoints[mask, 1],
+                    c=colors[predicted[mask]],
+                    marker=marker,
+                    s=size,
+                    edgecolors="black" if marker == "s" else "none",
+                    linewidths=0.7,
+                    alpha=0.9,
+                )
+        unknown = ~known
+        if unknown.any():
+            ax.scatter(
+                endpoints[unknown, 0],
+                endpoints[unknown, 1],
+                color="black",
+                marker="x",
+                s=45,
+                linewidths=1.2,
+            )
+        ax.set(
+            title=name,
+            xlim=limits[:2],
+            ylim=limits[2:],
+            xlabel="shared t-SNE 1",
+            ylabel="shared t-SNE 2",
+        )
+        ax.grid(alpha=0.15)
+    fig.suptitle(
+        "Final generated samples versus real clusters: circle=correct, square=wrong, x=unknown",
+        fontsize=14,
         fontweight="bold",
     )
     fig.savefig(path, dpi=180)
@@ -85,94 +223,28 @@ def plot_semantic_curves(curves, times, path, ylabel, title):
     plt.close(fig)
 
 
-def plot_endpoint_embedding(embeddings, labels, time_count, path):
-    names = list(embeddings)
-    sample_count = len(labels)
+def plot_unknown_confusions(confusions, path):
+    names = list(confusions)
     fig, axes = plt.subplots(
-        1, len(names), figsize=(5 * len(names), 4.5), constrained_layout=True
-    )
-    axes = np.atleast_1d(axes)
-    all_endpoints = []
-    for name in names:
-        points = embeddings[name].reshape(time_count, sample_count, 2)[-1]
-        all_endpoints.append(points)
-    combined = np.concatenate(all_endpoints)
-    limits = (
-        combined[:, 0].min(),
-        combined[:, 0].max(),
-        combined[:, 1].min(),
-        combined[:, 1].max(),
-    )
-    for ax, name, points in zip(axes, names, all_endpoints):
-        scatter = ax.scatter(
-            points[:, 0], points[:, 1], c=labels, cmap="tab10", vmin=0, vmax=9, s=28
-        )
-        for point, label in zip(points, labels):
-            ax.text(point[0], point[1], str(label), fontsize=7)
-        ax.set(title=name, xlim=limits[:2], ylim=limits[2:])
-        ax.grid(alpha=0.18)
-    axes[-1].legend(
-        *scatter.legend_elements(),
-        title="label",
-        bbox_to_anchor=(1.02, 1),
-        loc="upper left",
-    )
-    fig.suptitle(
-        "Final semantic features in the same t-SNE coordinate system", fontweight="bold"
-    )
-    fig.savefig(path, dpi=180)
-    plt.close(fig)
-
-
-def plot_label_centroid_trajectories(embeddings, labels, time_count, path):
-    names = list(embeddings)
-    columns = 2
-    rows = int(np.ceil(len(names) / columns))
-    fig, axes = plt.subplots(
-        rows,
-        columns,
-        figsize=(14, 6.5 * rows),
+        1,
+        len(names),
+        figsize=(5.4 * len(names), 4.8),
         squeeze=False,
         constrained_layout=True,
     )
-    colors = plt.cm.tab10(np.arange(10))
-    all_points = np.concatenate(list(embeddings.values()), axis=0)
-    limits = (
-        all_points[:, 0].min(),
-        all_points[:, 0].max(),
-        all_points[:, 1].min(),
-        all_points[:, 1].max(),
-    )
-    sample_count = len(labels)
-    unique_labels = np.unique(labels)
     for ax, name in zip(axes.ravel(), names):
-        points = embeddings[name].reshape(time_count, sample_count, 2)
-        for label in unique_labels:
-            mask = labels == label
-            centroid = points[:, mask].mean(axis=1)
-            ax.plot(
-                centroid[:, 0],
-                centroid[:, 1],
-                color=colors[label],
-                linewidth=2.0,
-                marker="o",
-                markersize=3,
-                label=str(label),
-            )
-            ax.scatter(centroid[0, 0], centroid[0, 1], color="#475569", s=24)
-            ax.text(centroid[-1, 0], centroid[-1, 1], str(label), fontsize=9)
+        matrix = confusions[name].astype(float)
+        normalized = matrix / np.maximum(matrix.sum(axis=1, keepdims=True), 1)
+        image = ax.imshow(normalized, cmap="Blues", vmin=0, vmax=1)
         ax.set_title(name, fontweight="bold")
-        ax.set_xlim(limits[0], limits[1])
-        ax.set_ylim(limits[2], limits[3])
-        ax.grid(alpha=0.18)
-        ax.set_xlabel("shared t-SNE 1")
-        ax.set_ylabel("shared t-SNE 2")
-    for ax in axes.ravel()[len(names) :]:
-        ax.axis("off")
+        ax.set_xlabel("classifier prediction (last column=unknown)")
+        ax.set_ylabel("target label")
+        ax.set_xticks(range(matrix.shape[1]))
+        ax.set_xticklabels([str(i) for i in range(matrix.shape[1] - 1)] + ["?"])
+        ax.set_yticks(range(matrix.shape[0]))
+        fig.colorbar(image, ax=ax, shrink=0.75)
     fig.suptitle(
-        "Label-centroid semantic trajectories in one shared t-SNE",
-        fontsize=16,
-        fontweight="bold",
+        "Unknown-aware conditional generation confusion matrices", fontweight="bold"
     )
     fig.savefig(path, dpi=180)
     plt.close(fig)

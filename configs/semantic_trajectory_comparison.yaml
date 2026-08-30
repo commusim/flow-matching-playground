@@ -1,12 +1,15 @@
 pipeline: semantic_trajectory_comparison
 seed: 42
 device: auto
+dataset: mnist
 image_size: 28
 num_classes: 10
-samples_per_class: 2
+samples_per_class: 10
+real_samples_per_class: 100
 ode_steps: 80
-time_points: 13
+time_points: 11
 guidance_scale: 3.0
+confidence_threshold: 0.8
 classifier_checkpoint: outputs/mnist_classifier/20260829_154612_seed42/checkpoint.pt
 experiments:
   additive_condition:

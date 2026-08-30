@@ -205,14 +205,25 @@ python main.py --config configs/semantic_trajectory_comparison.yaml
 
 默认比较：入口加法条件CNN、AdaGN条件CNN、VAE latent Flow和条件U-Net。输出包括：
 
-- `shared_tsne_semantic_trajectories.png`：所有样本的共享t-SNE轨迹；
-- `shared_tsne_label_centroid_trajectories.png`：更清晰的Label中心轨迹；
-- `shared_tsne_final_embeddings.png`：最终语义特征位置；
-- `semantic_accuracy_over_time.png`：随Flow时间变化的目标类别准确率；
-- `semantic_confidence_over_time.png`：随Flow时间变化的目标类别置信度；
+- `semantic_trajectories_with_real_clusters.png`：以真实类别簇为背景的目标Label中心轨迹；
+- `final_predictions_with_real_clusters.png`：最终分类器预测；圆点正确、方块错误、叉号unknown；
+- `unknown_aware_confusions.png`：包含unknown列的条件生成混淆矩阵；
+- `strict_accuracy_over_time.png`：低置信度计为unknown后的严格准确率；
+- `known_rate_over_time.png`与`target_confidence_over_time.png`：可识别比例与目标置信度；
 - `shared_tsne_embeddings.npz`：同一降维器产生的坐标，可复用分析。
 
-本次每类2张、共20张的统一对比结果：加法条件20%、AdaGN条件5%、latent Flow 80%、条件U-Net 100%。样本量较小，数值用于轨迹机制观察，不作为最终统计结论。
+当前正式对比使用每个目标Label生成10张（共100张/实验），并从真实测试集每类采样100张作为共同语义簇参照。分类器最大概率低于0.8时记为`unknown`，不强制分配类别。
+
+Unknown感知结果：
+
+| 实验 | 严格准确率 | Known rate | Known中的准确率 | Unknown rate |
+|---|---:|---:|---:|---:|
+| 入口加法条件 | 8% | 52% | 15.4% | 48% |
+| AdaGN条件CNN | 16% | 50% | 32% | 50% |
+| VAE latent Flow | 58% | 81% | 71.6% | 19% |
+| 条件U-Net | 100% | 100% | 100% | 0% |
+
+轨迹起点按目标Label着色：相同基础噪声会复制给0-9，初始位置重合，随后因条件不同而分叉。终点颜色与类别完全由分类器判定，而不是使用目标Label伪装为预测结果。
 ## 输出规范
 
 每个pipeline应在 `outputs/<pipeline>/` 下保存独立实验结果，至少包含总览图、loss曲线、轨迹/速度场图、指标和实际配置。实验完成后可让Codex根据这些输出生成逐图说明文档。
