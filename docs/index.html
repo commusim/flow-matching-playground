@@ -9,25 +9,43 @@
     />
     <title>Flow Matching Playground｜交互式学习教程</title>
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [
+            ["\\(", "\\)"],
+            ["$", "$"],
+          ],
+          displayMath: [["\\[", "\\]"]],
+        },
+        chtml: { scale: 0.95 },
+      };
+    </script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    ></script>
   </head>
   <body>
     <header class="hero">
       <nav class="top-nav" aria-label="章节导航">
         <a class="brand" href="#top">Flow Matching Playground</a>
         <div class="nav-links">
-          <a href="#theory">基础理论</a>
-          <a href="#two-dimensional">二维实验</a>
-          <a href="#mnist">MNIST初探</a>
+          <a href="#theory">理论</a>
+          <a href="#unconditional-2d">二维无条件</a>
+          <a href="#conditional-2d">二维条件</a>
+          <a href="#mnist">MNIST</a>
           <a href="#manifold">语义流形</a>
-          <a href="#conclusion">结论</a>
         </div>
       </nav>
       <div id="top" class="hero-content">
-        <p class="eyebrow">从速度回归到条件图像生成</p>
-        <h1>Flow Matching 交互式学习教程</h1>
+        <p class="eyebrow">
+          A visual argument from velocity regression to image generation
+        </p>
+        <h1>Flow Matching<br />交互式学习教程</h1>
         <p class="lead">
-          从二维点云开始，逐步理解条件速度场、像素空间生成、VAE
-          压缩、多尺度U-Net，以及分类器语义流形中的轨迹与速度。
+          从二维点云的条件概率路径开始，逐步进入像素空间、VAE
+          latent、多尺度U-Net，以及分类器语义流形中的轨迹与速度。
         </p>
         <div class="hero-actions">
           <a class="primary-action" href="#theory">开始学习</a>
@@ -44,122 +62,274 @@
       <section id="theory" class="chapter">
         <div class="chapter-heading">
           <span>第一章</span>
-          <h2>基础Flow Matching理论</h2>
-          <p>先定义路径，再让神经网络学习每个时间与位置上的瞬时速度。</p>
+          <h2>Flow Matching的数学对象</h2>
+          <p>模型不是直接预测终点，而是在每个时间和位置预测瞬时速度。</p>
         </div>
 
-        <div class="theory-grid">
-          <article class="concept-card">
-            <h3>1. 样本与噪声</h3>
+        <div class="evidence-layout">
+          <article class="hero-evidence">
+            <span class="panel-label">a</span>
+            <h3>条件概率路径</h3>
             <p>
-              数据样本记为 <code>x_data</code>，起点噪声记为
-              <code>x_noise</code
-              >。二维实验中的一个点是一条完整样本；图像实验中的一个点是一整张高维图像。
+              设数据样本为 \(x_1\sim p_{\mathrm{data}}\)，噪声为 \(x_0\sim
+              p_0\)。最简单的直线路径为
             </p>
+            <div class="math-block">
+              \[ x_t=(1-t)x_0+t x_1,\qquad t\in[0,1]. \]
+            </div>
+            <p>对时间求导得到样本级监督速度：</p>
+            <div class="math-block">
+              \[ u_t(x_t\mid x_0,x_1)=\frac{\mathrm d x_t}{\mathrm d t}=x_1-x_0.
+              \]
+            </div>
           </article>
-          <article class="concept-card">
-            <h3>2. 条件路径</h3>
-            <div class="equation">xₜ = (1 − t)x_noise + t x_data</div>
-            <p><code>t=0</code>是噪声，<code>t=1</code>是数据。</p>
-          </article>
-          <article class="concept-card">
-            <h3>3. 速度回归</h3>
-            <div class="equation">uₜ = x_data − x_noise</div>
-            <p>模型学习 <code>vθ(xₜ,t,c) ≈ uₜ</code>，其中c是可选条件。</p>
-          </article>
-          <article class="concept-card">
-            <h3>4. ODE采样</h3>
-            <div class="equation">dx / dt = vθ(x,t,c)</div>
-            <p>从高斯噪声开始，重复查询速度并进行数值积分。</p>
-          </article>
+          <div class="supporting-evidence">
+            <article>
+              <span class="panel-label">b</span>
+              <h3>速度回归损失</h3>
+              <div class="math-block compact-math">
+                \[ \mathcal L_{\mathrm{FM}}= \mathbb E_{x_0,x_1,t}
+                \left\|v_\theta(x_t,t,c)-(x_1-x_0)\right\|_2^2. \]
+              </div>
+            </article>
+            <article>
+              <span class="panel-label">c</span>
+              <h3>生成ODE</h3>
+              <div class="math-block compact-math">
+                \[ \frac{\mathrm d x_t}{\mathrm d t}=v_\theta(x_t,t,c), \qquad
+                x_{t+\Delta t}\approx x_t+\Delta t\,v_\theta(x_t,t,c). \]
+              </div>
+            </article>
+          </div>
         </div>
 
         <aside class="learning-note">
-          <strong>关键区别：</strong>
-          轨迹是一个样本随时间经过的位置；速度场是在给定时间下，空间中每个位置对应的移动方向。条件会改变整套随时间变化的速度场。
+          <strong>一个样本对应一个点。</strong>
+          二维实验中的点是二维样本；MNIST实验中的“点”是一整张 \(C\times H\times
+          W\) 图像。速度张量与样本具有相同形状。
         </aside>
       </section>
 
-      <section id="two-dimensional" class="chapter chapter-alt">
+      <section id="unconditional-2d" class="chapter chapter-alt">
         <div class="chapter-heading">
-          <span>第二章</span>
-          <h2>二维数据：无条件与有条件Flow</h2>
-          <p>拖动时间，直接观察点云、目标分布和速度箭头如何同时变化。</p>
+          <span>第二章 · Part I</span>
+          <h2>二维无条件Flow：损失如何塑造速度场</h2>
+          <p>先只研究一个目标分布，不引入条件变量。</p>
         </div>
 
-        <div class="interactive-panel">
+        <div class="method-sequence">
+          <div>
+            <strong>① 采样</strong
+            ><span>\(x_0\sim\mathcal N(0,I),\ x_1\sim p_{\mathrm{moon}}\)</span>
+          </div>
+          <div><strong>② 插值</strong><span>\(x_t=(1-t)x_0+t x_1\)</span></div>
+          <div><strong>③ 监督</strong><span>\(u_t=x_1-x_0\)</span></div>
+          <div>
+            <strong>④ 回归</strong><span>最小化 \(\|v_\theta-u_t\|^2\)</span>
+          </div>
+          <div><strong>⑤ 积分</strong><span>从新噪声求解生成ODE</span></div>
+        </div>
+
+        <div class="explanation-columns">
+          <article>
+            <h3>样本目标与边际速度</h3>
+            <p>
+              单个配对提供直线速度，但同一 \((x_t,t)\)
+              可能对应多个终点。MSE的总体最优解是条件平均：
+            </p>
+            <div class="math-block compact-math">
+              \[ v^*(x,t)=\mathbb E[x_1-x_0\mid x_t=x,t]. \]
+            </div>
+          </article>
+          <article>
+            <h3>为什么损失不会降到0？</h3>
+            <p>
+              独立随机配对产生不可约条件方差。即使模型学到正确边际流，仍可能存在
+            </p>
+            <div class="math-block compact-math">
+              \[ \mathbb E\left\|u_t-\mathbb E[u_t\mid x_t,t]\right\|^2>0. \]
+            </div>
+          </article>
+        </div>
+
+        <figure class="interactive-panel scientific-figure">
+          <span class="panel-label">a</span>
+          <figcaption>
+            <strong>无条件时变速度场与粒子运输</strong>
+            <span>拖动 \(t\)，同时观察目标分布、当前粒子和学习速度。</span>
+          </figcaption>
           <div class="control-row">
-            <label>
-              实验模式
-              <select id="flow-mode">
-                <option value="unconditional_moons">无条件 → 双月牙</option>
-                <option value="conditional_moons">条件0 → 双月牙</option>
-                <option value="conditional_ring">条件1 → 圆环</option>
-              </select>
-            </label>
             <label class="range-control">
-              Flow时间 t
+              Flow时间 \(t\)
               <input
-                id="flow-time"
+                id="unconditional-time"
                 type="range"
                 min="0"
-                max="10"
+                max="40"
                 step="1"
                 value="0"
               />
-              <output id="flow-time-value">0.00</output>
+              <output id="unconditional-time-value">0.000</output>
             </label>
             <label class="check-control">
-              <input id="flow-arrows" type="checkbox" checked />
-              显示速度场
+              <input
+                id="unconditional-arrows"
+                type="checkbox"
+                checked
+              />显示速度矢量
             </label>
           </div>
           <div class="canvas-frame">
+            <canvas id="unconditional-canvas" width="940" height="610"></canvas>
+          </div>
+        </figure>
+
+        <figure class="interactive-panel scientific-figure supporting-figure">
+          <span class="panel-label">b</span>
+          <figcaption>
+            <strong>三个关键阶段</strong>
+            <span
+              >固定比较 \(t=0\)、\(0.5\) 与 \(1\)，避免只看到最终结果。</span
+            >
+          </figcaption>
+          <div class="canvas-frame short-stage">
             <canvas
-              id="flow-canvas"
-              width="920"
-              height="600"
-              aria-label="二维Flow Matching交互图"
+              id="unconditional-stages"
+              width="1140"
+              height="380"
             ></canvas>
           </div>
-          <div class="legend-row">
-            <span><i class="legend-dot target"></i>目标分布</span>
-            <span><i class="legend-dot sample"></i>当前粒子</span>
-            <span><i class="legend-line velocity"></i>当前速度</span>
-          </div>
-          <p id="flow-explanation" class="dynamic-note"></p>
-        </div>
-
-        <div class="comparison-grid">
-          <article>
-            <h3>无条件速度场</h3>
-            <p>
-              模型只根据当前位置和时间预测速度。若数据分布具有多个模式，模型必须从噪声中自行决定最终模式。
-            </p>
-          </article>
-          <article>
-            <h3>有条件速度场</h3>
-            <p>
-              同一位置与时间，在条件0和条件1下可以得到不同速度：
-              <code>vθ(x,t,c₀) ≠ vθ(x,t,c₁)</code>。
-            </p>
-          </article>
-          <article>
-            <h3>如何阅读速度场</h3>
-            <p>
-              箭头方向表示局部移动方向，长度表示速度大小。应同时观察粒子是否沿箭头进入目标分布，而不是只看最终点云。
-            </p>
-          </article>
-        </div>
+        </figure>
       </section>
 
-      <section id="mnist" class="chapter">
+      <section id="conditional-2d" class="chapter">
+        <div class="chapter-heading">
+          <span>第二章 · Part II</span>
+          <h2>二维条件Flow：同一噪声如何进入不同分布</h2>
+          <p>
+            加入条件 \(c\)
+            后，一个网络学习多套条件速度场。当前示例中，条件0的目标是双月牙，条件1的目标是圆环。
+          </p>
+        </div>
+
+        <div class="evidence-layout compact-layout">
+          <article class="hero-evidence">
+            <span class="panel-label">a</span>
+            <h3>条件速度函数</h3>
+            <div class="math-block">
+              \[ v_\theta(x_t,t,c),\qquad v_\theta(x_t,t,c_{\mathrm{moon}})\neq
+              v_\theta(x_t,t,c_{\mathrm{ring}}). \]
+            </div>
+            <p>
+              同一个 \(x_0\)
+              在不同条件下，从相同起点沿不同ODE轨迹运动。训练时应先将条件标签送入网络，再让条件对应的目标分布参与路径和损失计算。
+            </p>
+          </article>
+          <div class="supporting-evidence">
+            <article>
+              <span class="panel-label">b</span>
+              <h3>条件训练损失</h3>
+              <div class="math-block compact-math">
+                \[ \mathcal L_{\mathrm{CFM}}= \mathbb
+                E\left\|v_\theta(x_t,t,c)-(x_1^{(c)}-x_0)\right\|_2^2. \]
+              </div>
+            </article>
+            <article>
+              <span class="panel-label">c</span>
+              <h3>条件Embedding</h3>
+              <p>
+                离散条件先映射到连续向量
+                \(e_c\)，再与位置和时间共同输入速度网络。
+              </p>
+            </article>
+          </div>
+        </div>
+
+        <figure class="interactive-panel scientific-figure">
+          <span class="panel-label">d</span>
+          <figcaption>
+            <strong>单一条件的粒子与速度场</strong>
+            <span>切换双月牙/圆环，比较同一时刻速度方向的变化。</span>
+          </figcaption>
+          <div class="control-row">
+            <label>
+              条件 \(c\)
+              <select id="conditional-mode">
+                <option value="conditional_moons">条件0：双月牙</option>
+                <option value="conditional_ring">条件1：圆环</option>
+              </select>
+            </label>
+            <label class="range-control">
+              Flow时间 \(t\)
+              <input
+                id="conditional-time"
+                type="range"
+                min="0"
+                max="40"
+                step="1"
+                value="0"
+              />
+              <output id="conditional-time-value">0.000</output>
+            </label>
+            <label class="check-control">
+              <input
+                id="conditional-arrows"
+                type="checkbox"
+                checked
+              />显示速度矢量
+            </label>
+          </div>
+          <div class="canvas-frame">
+            <canvas id="conditional-canvas" width="940" height="610"></canvas>
+          </div>
+        </figure>
+
+        <figure class="interactive-panel scientific-figure supporting-figure">
+          <span class="panel-label">e</span>
+          <figcaption>
+            <strong>同一噪声、两个条件的并行对照</strong>
+            <span>左：双月牙条件；右：圆环条件。时间由上方滑块控制。</span>
+          </figcaption>
+          <div class="canvas-frame short-stage">
+            <canvas
+              id="conditional-comparison"
+              width="1140"
+              height="430"
+            ></canvas>
+          </div>
+        </figure>
+      </section>
+
+      <section id="mnist" class="chapter chapter-alt">
         <div class="chapter-heading">
           <span>第三章</span>
-          <h2>MNIST初探：从像素CNN到条件U-Net</h2>
-          <p>
-            先理解理论差异，再通过同一噪声、同一Label和同一时间查看实际生成过程。
-          </p>
+          <h2>MNIST：从像素速度到latent与U-Net</h2>
+          <p>图像是一条高维样本，模型输出与图像同形状的速度张量。</p>
+        </div>
+
+        <div class="formula-stack">
+          <article>
+            <h3>像素空间Flow</h3>
+            <div class="math-block compact-math">
+              \[ x_t\in\mathbb R^{B\times C\times H\times W},\qquad
+              v_\theta(x_t,t,y)\in\mathbb R^{B\times C\times H\times W}. \]
+            </div>
+          </article>
+          <article>
+            <h3>VAE latent Flow</h3>
+            <div class="math-block compact-math">
+              \[ z_1=E_\phi(x_1),\quad z_t=(1-t)z_0+t z_1,\quad \hat
+              x_1=D_\psi(z_1). \]
+            </div>
+          </article>
+          <article>
+            <h3>Classifier-Free Guidance</h3>
+            <div class="math-block compact-math">
+              \[
+              v_{\mathrm{guided}}=v_{\varnothing}+s\left(v_y-v_{\varnothing}\right).
+              \]
+            </div>
+          </article>
         </div>
 
         <div class="architecture-table-wrap">
@@ -168,102 +338,123 @@
               <tr>
                 <th>模型</th>
                 <th>生成空间</th>
-                <th>条件方式</th>
-                <th>全局结构</th>
-                <th>当前表现</th>
+                <th>条件注入</th>
+                <th>结构归纳偏置</th>
+                <th>主要局限</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>入口加法条件CNN</td>
-                <td>28×28像素</td>
-                <td>入口加入Label</td>
-                <td>弱，局部感受野</td>
-                <td>大量错误与unknown</td>
+                <td>入口加法CNN</td>
+                <td>像素</td>
+                <td>只在入口相加</td>
+                <td>局部卷积</td>
+                <td>条件易被归一化削弱</td>
               </tr>
               <tr>
-                <td>AdaGN条件CNN</td>
-                <td>28×28像素</td>
+                <td>AdaGN CNN</td>
+                <td>像素</td>
                 <td>每层scale/shift</td>
-                <td>仍为平坦CNN</td>
-                <td>条件增强但整体结构不足</td>
+                <td>局部卷积</td>
+                <td>缺乏全局感受野</td>
               </tr>
               <tr>
                 <td>VAE latent Flow</td>
                 <td>8×7×7 latent</td>
                 <td>latent条件CNN</td>
-                <td>压缩后更平滑</td>
-                <td>明显优于平坦像素CNN</td>
+                <td>Decoder图像先验</td>
+                <td>latent主干仍较简单</td>
               </tr>
               <tr>
-                <td>条件U-Net Flow</td>
-                <td>28×28像素</td>
+                <td>条件U-Net</td>
+                <td>像素</td>
                 <td>AdaGN + CFG</td>
-                <td>7×7 Bottleneck + Skip</td>
-                <td>类别控制最稳定</td>
+                <td>Bottleneck + Skip</td>
+                <td>计算量更高</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div class="theory-grid compact">
-          <article class="concept-card">
-            <h3>为什么VAE会改善？</h3>
+        <div class="explanation-columns three-columns">
+          <article>
+            <h3>为什么VAE优于平坦像素CNN？</h3>
             <p>
-              VAE把784维像素压缩到392维latent，并用Decoder提供数字形状先验。生成器不再逐像素处理高频噪声，更容易形成闭环和笔画。
+              像素 \(1\times28\times28\) 被压缩为
+              \(8\times7\times7\)，Decoder限制输出更接近数字流形，减少高频像素搜索。
             </p>
           </article>
-          <article class="concept-card">
-            <h3>为什么VAE不是万能的？</h3>
+          <article>
+            <h3>为什么VAE仍弱于U-Net？</h3>
             <p>
-              压缩空间不会自动增强条件控制。若latent速度网络缺乏多尺度结构、Guidance或足够容量，仍会出现类别混淆。
+              压缩不会自动增强Label控制。当前latent网络没有多尺度路径和CFG，因此类别运输仍不完整。
             </p>
           </article>
-          <article class="concept-card">
-            <h3>为什么U-Net更强？</h3>
+          <article>
+            <h3>为什么U-Net最稳定？</h3>
             <p>
-              7×7 Bottleneck负责数字全局拓扑，Skip
-              Connection恢复局部笔画，逐层AdaGN持续注入Label，CFG放大条件方向。
+              7×7
+              Bottleneck规划全局拓扑，Skip恢复笔画，逐层AdaGN保持条件，CFG放大目标方向。
             </p>
           </article>
         </div>
 
-        <div class="interactive-panel">
+        <figure class="interactive-panel scientific-figure wide-figure">
+          <span class="panel-label">a</span>
+          <figcaption>
+            <strong>四种模型的横向时间演进</strong>
+            <span
+              >选择一个目标Label，每一行对应一种模型；列从 \(t=0\) 演进到
+              \(t=1\)。</span
+            >
+          </figcaption>
           <div class="control-row">
-            <label>
-              生成模型
+            <label
+              >目标Label
+              <select id="comparison-label"></select
+            ></label>
+          </div>
+          <div class="canvas-frame comparison-filmstrip">
+            <canvas id="mnist-comparison" width="1200" height="500"></canvas>
+          </div>
+        </figure>
+
+        <figure class="interactive-panel scientific-figure">
+          <span class="panel-label">b</span>
+          <figcaption>
+            <strong>单模型、单Label的细粒度演进</strong>
+            <span>41个时间点可交互；分类器预测用于判断语义何时形成。</span>
+          </figcaption>
+          <div class="control-row">
+            <label
+              >模型
               <select id="mnist-model">
                 <option value="additive">入口加法条件CNN</option>
                 <option value="adagn">AdaGN条件CNN</option>
                 <option value="latent">VAE latent Flow</option>
                 <option value="unet" selected>条件U-Net Flow</option>
-              </select>
-            </label>
-            <label>
-              目标Label
-              <select id="mnist-label"></select>
-            </label>
+              </select></label
+            >
+            <label
+              >目标Label
+              <select id="mnist-label"></select
+            ></label>
             <label class="range-control">
-              Flow时间 t
+              Flow时间 \(t\)
               <input
                 id="mnist-time"
                 type="range"
                 min="0"
-                max="10"
+                max="40"
                 step="1"
                 value="0"
               />
-              <output id="mnist-time-value">0.00</output>
+              <output id="mnist-time-value">0.000</output>
             </label>
           </div>
           <div class="mnist-view-grid">
             <div class="digit-stage">
-              <canvas
-                id="mnist-canvas"
-                width="336"
-                height="336"
-                aria-label="MNIST生成图像"
-              ></canvas>
+              <canvas id="mnist-canvas" width="336" height="336"></canvas>
               <div class="digit-meta">
                 <span>目标：<strong id="mnist-target">0</strong></span>
                 <span
@@ -277,157 +468,161 @@
               </div>
             </div>
             <div class="timeline-stage">
-              <h3>同一样本的完整时间演进</h3>
-              <canvas
-                id="mnist-timeline"
-                width="880"
-                height="100"
-                aria-label="MNIST时间序列"
-              ></canvas>
+              <h3>41步完整序列</h3>
+              <canvas id="mnist-timeline" width="920" height="110"></canvas>
               <p id="mnist-explanation" class="dynamic-note"></p>
             </div>
           </div>
-        </div>
+        </figure>
       </section>
 
-      <section id="manifold" class="chapter chapter-alt">
+      <section id="manifold" class="chapter">
         <div class="chapter-heading">
           <span>第四章</span>
-          <h2>监督语义流形：轨迹、真实簇与速度场</h2>
-          <p>
-            所有中间图像进入同一个冻结分类器，得到可比较的128维监督特征。真实测试集类别簇提供语义参照。
-          </p>
+          <h2>分类器监督语义流形与速度</h2>
+          <p>使用同一个冻结分类器将所有中间图像映射到可比较的128维语义空间。</p>
         </div>
 
-        <div class="manifold-theory">
-          <div class="equation">fₜ = C_encoder(xₜ) ∈ ℝ¹²⁸</div>
-          <div class="equation">dfₜ/dt ≈ [f(t+Δt) − f(t)] / Δt</div>
-          <p>
-            t-SNE用于观察邻域与类别簇；速度向量使用同一个线性PCA投影，因为t-SNE的非线性坐标不能可靠地变换向量。
-          </p>
+        <div class="evidence-layout compact-layout">
+          <article class="hero-evidence">
+            <span class="panel-label">a</span>
+            <h3>语义轨迹</h3>
+            <div class="math-block">
+              \[ f_t=C_{\mathrm{encoder}}(x_t)\in\mathbb R^{128}. \]
+            </div>
+            <p>共享t-SNE用于观察真实类别簇与生成样本的邻域关系。</p>
+          </article>
+          <div class="supporting-evidence">
+            <article>
+              <span class="panel-label">b</span>
+              <h3>语义速度</h3>
+              <div class="math-block compact-math">
+                \[ \dot f_t\approx\frac{f_{t+\Delta t}-f_t}{\Delta t}
+                =J_C(x_t)v_\theta(x_t,t,y). \]
+              </div>
+            </article>
+            <article>
+              <span class="panel-label">c</span>
+              <h3>目标方向</h3>
+              <div class="math-block compact-math">
+                \[ A(t)=\cos\!\left(\dot f_t,\mu_y-f_t\right). \]
+              </div>
+            </article>
+          </div>
         </div>
 
-        <div class="interactive-panel">
-          <h3>共享t-SNE中的生成位置</h3>
+        <figure class="interactive-panel scientific-figure">
+          <span class="panel-label">d</span>
+          <figcaption>
+            <strong>共享t-SNE中的生成位置</strong
+            ><span>背景为真实类别簇；彩色点为所选Label的生成样本。</span>
+          </figcaption>
           <div class="control-row">
-            <label>
-              模型
-              <select id="manifold-model"></select>
-            </label>
-            <label>
-              目标Label
-              <select id="manifold-label"></select>
-            </label>
+            <label
+              >模型
+              <select id="manifold-model"></select
+            ></label>
+            <label
+              >目标Label
+              <select id="manifold-label"></select
+            ></label>
             <label class="range-control">
-              时间 t
+              时间 \(t\)
               <input
                 id="manifold-time"
                 type="range"
                 min="0"
-                max="10"
+                max="40"
                 step="1"
                 value="0"
               />
-              <output id="manifold-time-value">0.00</output>
+              <output id="manifold-time-value">0.000</output>
             </label>
           </div>
           <div class="canvas-frame">
-            <canvas
-              id="manifold-canvas"
-              width="920"
-              height="620"
-              aria-label="共享t-SNE语义流形"
-            ></canvas>
+            <canvas id="manifold-canvas" width="940" height="620"></canvas>
           </div>
-          <p class="dynamic-note">
-            背景为真实MNIST分类器特征簇；彩色点为所选目标Label的10个生成样本。观察它们是否随时间进入对应真实簇。
-          </p>
-        </div>
+        </figure>
 
-        <div class="interactive-panel">
-          <h3>分类器特征流形中的语义速度场</h3>
+        <figure class="interactive-panel scientific-figure">
+          <span class="panel-label">e</span>
+          <figcaption>
+            <strong>分类器特征流形中的速度场</strong
+            ><span>位置和速度使用同一个线性PCA投影，箭头可以作方向解释。</span>
+          </figcaption>
           <div class="control-row">
-            <label>
-              模型
-              <select id="velocity-model"></select>
-            </label>
+            <label
+              >模型
+              <select id="velocity-model"></select
+            ></label>
             <label class="range-control">
-              速度时间区间
+              时间区间
               <input
                 id="velocity-time"
                 type="range"
                 min="0"
-                max="9"
+                max="39"
                 step="1"
                 value="0"
               />
-              <output id="velocity-time-value">0.00 → 0.10</output>
+              <output id="velocity-time-value">0.000 → 0.025</output>
             </label>
           </div>
           <div class="canvas-frame">
-            <canvas
-              id="velocity-canvas"
-              width="920"
-              height="620"
-              aria-label="分类器特征语义速度场"
-            ></canvas>
+            <canvas id="velocity-canvas" width="940" height="620"></canvas>
           </div>
-          <p class="dynamic-note">
-            三角形是按目标Label着色的当前位置，箭头是128维分类器语义速度在同一PCA平面中的投影。箭头是否朝真实目标簇移动，比速度大小更重要。
-          </p>
-        </div>
+        </figure>
 
-        <div class="interactive-panel">
-          <h3>语义动力学曲线</h3>
+        <figure class="interactive-panel scientific-figure supporting-figure">
+          <span class="panel-label">f</span>
+          <figcaption>
+            <strong>语义动力学量化</strong
+            ><span>速度大小、目标对齐度和目标簇距离必须结合解释。</span>
+          </figcaption>
           <div class="control-row">
-            <label>
-              指标
+            <label
+              >指标
               <select id="metric-select">
                 <option value="speed">语义速度大小</option>
                 <option value="alignment">目标方向对齐度</option>
                 <option value="distance">目标类别中心距离</option>
-              </select>
-            </label>
+              </select></label
+            >
           </div>
           <div class="canvas-frame short">
-            <canvas
-              id="metric-canvas"
-              width="920"
-              height="440"
-              aria-label="语义动力学曲线"
-            ></canvas>
+            <canvas id="metric-canvas" width="940" height="440"></canvas>
           </div>
           <p id="metric-explanation" class="dynamic-note"></p>
-        </div>
+        </figure>
       </section>
 
-      <section id="conclusion" class="chapter">
+      <section id="conclusion" class="chapter chapter-alt">
         <div class="chapter-heading">
           <span>第五章</span>
-          <h2>如何理解结构差异</h2>
+          <h2>从实验中得到什么</h2>
         </div>
         <div class="conclusion-list">
           <article>
-            <strong>平坦CNN</strong>
-            <p>主要学习局部像素修正，速度不一定朝目标语义簇移动。</p>
+            <strong>局部变化不等于语义正确</strong>
+            <p>平坦CNN可以快速改变像素，但语义速度未必指向目标类别簇。</p>
           </article>
           <article>
-            <strong>VAE latent Flow</strong>
+            <strong>压缩改善搜索几何</strong>
             <p>
-              压缩表示减少高频像素搜索，并通过Decoder提供图像先验，因此比平坦像素CNN更容易形成数字。
+              VAE减少高频像素自由度并提供Decoder先验，因此latent
+              Flow优于平坦CNN。
             </p>
           </article>
           <article>
-            <strong>条件U-Net</strong>
+            <strong>多尺度决定全局拓扑</strong>
             <p>
-              多尺度全局规划、Skip
-              Connection、逐层条件调制和CFG共同产生方向更正确的语义速度场。
+              U-Net Bottleneck规划类别，Skip恢复细节，条件在不同尺度持续存在。
             </p>
           </article>
           <article>
-            <strong>评价原则</strong>
+            <strong>评价必须有真实参照</strong>
             <p>
-              同时观察原图、真实语义簇、分类置信度、速度方向与目标距离，不能只凭一张降维图判断模型是否正确。
+              原图、真实簇、unknown阈值、语义速度方向和距离应共同构成证据链。
             </p>
           </article>
         </div>
@@ -435,12 +630,8 @@
     </main>
 
     <footer>
-      <p>
-        Flow Matching Playground ·
-        交互数据来自项目中已训练的Checkpoint与实验输出。
-      </p>
+      <p>Flow Matching Playground · 数据与轨迹来自项目中已训练的Checkpoint。</p>
     </footer>
-
     <script src="app.js" defer></script>
   </body>
 </html>

@@ -1,25 +1,25 @@
 const COLORS = [
-  "#3b82f6",
-  "#f97316",
-  "#22c55e",
-  "#ef4444",
-  "#8b5cf6",
-  "#a16207",
-  "#ec4899",
-  "#64748b",
-  "#ca8a04",
-  "#06b6d4",
+  "#2878b5",
+  "#e6862f",
+  "#3c8d85",
+  "#b3242c",
+  "#7656a6",
+  "#9b6b55",
+  "#d66a9a",
+  "#7a7f84",
+  "#c49a36",
+  "#42a7b3",
 ];
 
 const MODEL_LABELS = {
-  additive: "入口加法条件CNN",
-  adagn: "AdaGN条件CNN",
+  additive: "入口加法CNN",
+  adagn: "AdaGN CNN",
   latent: "VAE latent Flow",
-  unet: "条件U-Net Flow",
-  additive_condition: "入口加法条件CNN",
-  adagn_condition: "AdaGN条件CNN",
+  unet: "条件U-Net",
+  additive_condition: "入口加法CNN",
+  adagn_condition: "AdaGN CNN",
   latent_flow: "VAE latent Flow",
-  conditional_unet: "条件U-Net Flow",
+  conditional_unet: "条件U-Net",
 };
 
 const state = {
@@ -36,9 +36,7 @@ function byId(id) {
 
 function loadJson(path) {
   return fetch(path).then((response) => {
-    if (!response.ok) {
-      throw new Error(`无法加载 ${path}`);
-    }
+    if (!response.ok) throw new Error(`无法加载 ${path}`);
     return response.json();
   });
 }
@@ -52,7 +50,7 @@ function loadImage(path) {
   });
 }
 
-function clearCanvas(canvas, color = "#fbfcfe") {
+function clearCanvas(canvas, color = "#ffffff") {
   const context = canvas.getContext("2d");
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = color;
@@ -60,8 +58,8 @@ function clearCanvas(canvas, color = "#fbfcfe") {
   return context;
 }
 
-function paddedExtent(pointCollections, padding = 0.08) {
-  const points = pointCollections.flat();
+function paddedExtent(collections, padding = 0.08) {
+  const points = collections.flat();
   const xs = points.map((point) => point[0]);
   const ys = points.map((point) => point[1]);
   const minX = Math.min(...xs);
@@ -78,32 +76,42 @@ function paddedExtent(pointCollections, padding = 0.08) {
   ];
 }
 
-function createMapper(canvas, extent, margin = 52) {
+function mapperForRect(rect, extent) {
   const [minX, maxX, minY, maxY] = extent;
   return ([x, y]) => [
-    margin + ((x - minX) / (maxX - minX)) * (canvas.width - margin * 2),
-    canvas.height -
-      margin -
-      ((y - minY) / (maxY - minY)) * (canvas.height - margin * 2),
+    rect.x + ((x - minX) / (maxX - minX)) * rect.width,
+    rect.y + rect.height - ((y - minY) / (maxY - minY)) * rect.height,
   ];
 }
 
+function createMapper(canvas, extent, margin = 58) {
+  return mapperForRect(
+    {
+      x: margin,
+      y: 28,
+      width: canvas.width - margin * 2,
+      height: canvas.height - 82,
+    },
+    extent,
+  );
+}
+
 function drawAxes(context, canvas, extent, mapper, xLabel, yLabel) {
-  context.strokeStyle = "#d5deea";
+  context.strokeStyle = "#bfc3c6";
   context.lineWidth = 1;
-  context.strokeRect(52, 28, canvas.width - 104, canvas.height - 80);
-  context.fillStyle = "#5d6b80";
-  context.font = "12px system-ui";
+  context.strokeRect(58, 28, canvas.width - 116, canvas.height - 82);
+  context.fillStyle = "#4d5155";
+  context.font = "12px Arial";
   context.textAlign = "center";
   context.fillText(xLabel, canvas.width / 2, canvas.height - 12);
   context.save();
-  context.translate(14, canvas.height / 2);
+  context.translate(15, canvas.height / 2);
   context.rotate(-Math.PI / 2);
   context.fillText(yLabel, 0, 0);
   context.restore();
   const [minX, maxX, minY, maxY] = extent;
-  context.fillStyle = "#778397";
-  context.font = "10px system-ui";
+  context.fillStyle = "#777";
+  context.font = "10px Arial";
   context.fillText(
     minX.toFixed(1),
     mapper([minX, minY])[0],
@@ -115,21 +123,20 @@ function drawAxes(context, canvas, extent, mapper, xLabel, yLabel) {
     canvas.height - 34,
   );
   context.textAlign = "right";
-  context.fillText(minY.toFixed(1), 45, mapper([minX, minY])[1] + 4);
-  context.fillText(maxY.toFixed(1), 45, mapper([minX, maxY])[1] + 4);
+  context.fillText(minY.toFixed(1), 50, mapper([minX, minY])[1] + 4);
+  context.fillText(maxY.toFixed(1), 50, mapper([minX, maxY])[1] + 4);
 }
 
-function drawArrow(context, start, change, color, scale = 1) {
-  const end = [start[0] + change[0] * scale, start[1] + change[1] * scale];
+function drawArrow(context, start, change, color, head = 4) {
+  const end = [start[0] + change[0], start[1] + change[1]];
   context.strokeStyle = color;
   context.fillStyle = color;
-  context.lineWidth = 1.2;
+  context.lineWidth = 1.15;
   context.beginPath();
   context.moveTo(start[0], start[1]);
   context.lineTo(end[0], end[1]);
   context.stroke();
   const angle = Math.atan2(end[1] - start[1], end[0] - start[0]);
-  const head = 4;
   context.beginPath();
   context.moveTo(end[0], end[1]);
   context.lineTo(
@@ -144,66 +151,155 @@ function drawArrow(context, start, change, color, scale = 1) {
   context.fill();
 }
 
-function drawFlow() {
-  if (!state.flow) return;
-  const mode = byId("flow-mode").value;
-  const timeIndex = Number(byId("flow-time").value);
-  const showArrows = byId("flow-arrows").checked;
-  const canvas = byId("flow-canvas");
-  const context = clearCanvas(canvas);
-  const data = state.flow.modes[mode];
+function drawFlowContent(
+  context,
+  rect,
+  data,
+  grid,
+  timeIndex,
+  showArrows,
+  title,
+) {
   const extent = [-3.1, 3.1, -2.8, 2.8];
-  const mapper = createMapper(canvas, extent, 54);
-  drawAxes(context, canvas, extent, mapper, "x₁", "x₂");
+  const mapper = mapperForRect(rect, extent);
+  context.strokeStyle = "#bfc3c6";
+  context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+  context.fillStyle = "#222";
+  context.font = "bold 13px Arial";
+  context.textAlign = "left";
+  context.fillText(title, rect.x + 8, rect.y + 18);
 
-  context.fillStyle = "rgba(239,71,111,0.20)";
+  context.fillStyle = "rgba(179,36,44,0.15)";
   data.target.forEach((point) => {
     const [x, y] = mapper(point);
     context.beginPath();
-    context.arc(x, y, 2.4, 0, Math.PI * 2);
+    context.arc(x, y, 2.1, 0, Math.PI * 2);
     context.fill();
   });
 
   if (showArrows) {
-    const grid = state.flow.grid;
     const velocity = data.velocities[timeIndex];
     grid.forEach((point, index) => {
-      const start = mapper(point);
       const vector = velocity[index];
       const magnitude = Math.hypot(vector[0], vector[1]);
-      const normalizedScale = Math.min(0.18, 0.1 / Math.max(magnitude, 0.001));
-      const mappedEnd = mapper([
-        point[0] + vector[0] * normalizedScale,
-        point[1] + vector[1] * normalizedScale,
+      const scale = Math.min(0.18, 0.1 / Math.max(magnitude, 0.001));
+      const start = mapper(point);
+      const end = mapper([
+        point[0] + vector[0] * scale,
+        point[1] + vector[1] * scale,
       ]);
       drawArrow(
         context,
         start,
-        [mappedEnd[0] - start[0], mappedEnd[1] - start[1]],
-        "rgba(112,72,181,0.58)",
+        [end[0] - start[0], end[1] - start[1]],
+        "rgba(60,90,130,0.46)",
+        3,
       );
     });
   }
 
-  context.fillStyle = "rgba(49,87,213,0.78)";
+  context.fillStyle = "rgba(40,120,181,0.82)";
   data.positions[timeIndex].forEach((point) => {
     const [x, y] = mapper(point);
     context.beginPath();
-    context.arc(x, y, 3.1, 0, Math.PI * 2);
+    context.arc(x, y, 2.8, 0, Math.PI * 2);
     context.fill();
   });
+}
 
-  const time = state.flow.times[timeIndex];
-  byId("flow-time-value").textContent = time.toFixed(2);
-  const descriptions = {
-    unconditional_moons:
-      "无条件模型必须从噪声自身决定最终位置。观察早期速度主要整理整体分布，中后期才形成双月牙。",
-    conditional_moons:
-      "条件0选择双月牙速度场。与条件1相比，网络参数相同，但条件Embedding改变了每个时刻的方向。",
-    conditional_ring:
-      "条件1选择圆环速度场。同一噪声在不同条件下会沿不同ODE轨迹进入不同目标分布。",
-  };
-  byId("flow-explanation").textContent = descriptions[mode];
+function drawUnconditional() {
+  if (!state.flow) return;
+  const timeIndex = Number(byId("unconditional-time").value);
+  const showArrows = byId("unconditional-arrows").checked;
+  const canvas = byId("unconditional-canvas");
+  const context = clearCanvas(canvas);
+  const extent = [-3.1, 3.1, -2.8, 2.8];
+  const mapper = createMapper(canvas, extent, 58);
+  drawAxes(context, canvas, extent, mapper, "x₁", "x₂");
+  drawFlowContent(
+    context,
+    { x: 58, y: 28, width: canvas.width - 116, height: canvas.height - 82 },
+    state.flow.modes.unconditional_moons,
+    state.flow.grid,
+    timeIndex,
+    showArrows,
+    "unconditional field",
+  );
+  byId("unconditional-time-value").textContent =
+    state.flow.times[timeIndex].toFixed(3);
+
+  const stages = byId("unconditional-stages");
+  const stagesContext = clearCanvas(stages);
+  const indices = [
+    0,
+    Math.floor((state.flow.times.length - 1) / 2),
+    state.flow.times.length - 1,
+  ];
+  const gap = 22;
+  const width = (stages.width - gap * 4) / 3;
+  indices.forEach((index, panel) => {
+    drawFlowContent(
+      stagesContext,
+      {
+        x: gap + panel * (width + gap),
+        y: 32,
+        width,
+        height: stages.height - 58,
+      },
+      state.flow.modes.unconditional_moons,
+      state.flow.grid,
+      index,
+      panel === 1,
+      `t = ${state.flow.times[index].toFixed(2)}`,
+    );
+  });
+}
+
+function drawConditional() {
+  if (!state.flow) return;
+  const mode = byId("conditional-mode").value;
+  const timeIndex = Number(byId("conditional-time").value);
+  const showArrows = byId("conditional-arrows").checked;
+  const canvas = byId("conditional-canvas");
+  const context = clearCanvas(canvas);
+  const extent = [-3.1, 3.1, -2.8, 2.8];
+  const mapper = createMapper(canvas, extent, 58);
+  drawAxes(context, canvas, extent, mapper, "x₁", "x₂");
+  drawFlowContent(
+    context,
+    { x: 58, y: 28, width: canvas.width - 116, height: canvas.height - 82 },
+    state.flow.modes[mode],
+    state.flow.grid,
+    timeIndex,
+    showArrows,
+    mode === "conditional_moons" ? "condition 0: moons" : "condition 1: ring",
+  );
+  byId("conditional-time-value").textContent =
+    state.flow.times[timeIndex].toFixed(3);
+
+  const comparison = byId("conditional-comparison");
+  const comparisonContext = clearCanvas(comparison);
+  const gap = 28;
+  const width = (comparison.width - gap * 3) / 2;
+  [
+    ["conditional_moons", "condition 0 → moons"],
+    ["conditional_ring", "condition 1 → ring"],
+  ].forEach(([key, title], panel) => {
+    drawFlowContent(
+      comparisonContext,
+      {
+        x: gap + panel * (width + gap),
+        y: 34,
+        width,
+        height: comparison.height - 64,
+      },
+      state.flow.modes[key],
+      state.flow.grid,
+      timeIndex,
+      false,
+      title,
+    );
+  });
 }
 
 function populateNumericSelect(select, count) {
@@ -216,6 +312,74 @@ function populateNumericSelect(select, count) {
   }
 }
 
+function drawSpriteCell(context, image, timeIndex, label, x, y, size) {
+  context.imageSmoothingEnabled = false;
+  context.drawImage(
+    image,
+    timeIndex * 28,
+    label * 28,
+    28,
+    28,
+    x,
+    y,
+    size,
+    size,
+  );
+}
+
+function drawMnistComparison() {
+  if (!state.predictions) return;
+  const label = Number(byId("comparison-label").value);
+  const canvas = byId("mnist-comparison");
+  const context = clearCanvas(canvas, "#111111");
+  const modelNames = ["additive", "adagn", "latent", "unet"];
+  const count = state.predictions.times.length;
+  const selected = Array.from({ length: 9 }, (_, index) =>
+    Math.round((index / 8) * (count - 1)),
+  );
+  const left = 155;
+  const top = 30;
+  const rowHeight = (canvas.height - 50) / modelNames.length;
+  const cellWidth = (canvas.width - left - 20) / selected.length;
+  context.fillStyle = "#eeeeee";
+  context.font = "bold 14px Arial";
+  context.textAlign = "right";
+  modelNames.forEach((model, row) => {
+    context.fillText(
+      MODEL_LABELS[model],
+      left - 14,
+      top + row * rowHeight + rowHeight / 2 + 5,
+    );
+    selected.forEach((timeIndex, column) => {
+      const size = Math.min(rowHeight - 18, cellWidth - 8);
+      const x = left + column * cellWidth + (cellWidth - size) / 2;
+      const y = top + row * rowHeight + (rowHeight - size) / 2;
+      drawSpriteCell(
+        context,
+        state.sprites[model],
+        timeIndex,
+        label,
+        x,
+        y,
+        size,
+      );
+      if (row === 0) {
+        context.fillStyle = "#bbbbbb";
+        context.font = "10px Arial";
+        context.textAlign = "center";
+        context.fillText(
+          state.predictions.times[timeIndex].toFixed(2),
+          x + size / 2,
+          17,
+        );
+        context.textAlign = "right";
+        context.fillStyle = "#eeeeee";
+        context.font = "bold 14px Arial";
+      }
+    });
+  });
+}
+
 function drawMnist() {
   if (!state.predictions) return;
   const model = byId("mnist-model").value;
@@ -224,42 +388,21 @@ function drawMnist() {
   const image = state.sprites[model];
   const canvas = byId("mnist-canvas");
   const context = clearCanvas(canvas, "#000000");
-  context.imageSmoothingEnabled = false;
-  context.drawImage(
-    image,
-    timeIndex * 28,
-    label * 28,
-    28,
-    28,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
+  drawSpriteCell(context, image, timeIndex, label, 0, 0, canvas.width);
 
   const timeline = byId("mnist-timeline");
   const timelineContext = clearCanvas(timeline, "#000000");
-  timelineContext.imageSmoothingEnabled = false;
-  const cellWidth = timeline.width / 11;
-  for (let index = 0; index < 11; index += 1) {
-    const size = Math.min(cellWidth - 8, 72);
+  const count = state.predictions.times.length;
+  const cellWidth = timeline.width / count;
+  for (let index = 0; index < count; index += 1) {
+    const size = Math.max(8, Math.min(cellWidth - 1, 70));
     const x = index * cellWidth + (cellWidth - size) / 2;
     const y = (timeline.height - size) / 2;
-    timelineContext.drawImage(
-      image,
-      index * 28,
-      label * 28,
-      28,
-      28,
-      x,
-      y,
-      size,
-      size,
-    );
+    drawSpriteCell(timelineContext, image, index, label, x, y, size);
     if (index === timeIndex) {
-      timelineContext.strokeStyle = "#79a0ff";
-      timelineContext.lineWidth = 3;
-      timelineContext.strokeRect(x - 2, y - 2, size + 4, size + 4);
+      timelineContext.strokeStyle = "#ffffff";
+      timelineContext.lineWidth = 2;
+      timelineContext.strokeRect(x - 1, y - 1, size + 2, size + 2);
     }
   }
 
@@ -267,21 +410,43 @@ function drawMnist() {
   const confidence = record.confidence[label];
   const predicted = confidence >= 0.8 ? record.predicted[label] : "unknown";
   byId("mnist-time-value").textContent =
-    state.predictions.times[timeIndex].toFixed(2);
+    state.predictions.times[timeIndex].toFixed(3);
   byId("mnist-target").textContent = String(label);
   byId("mnist-prediction").textContent = String(predicted);
   byId("mnist-confidence").textContent = `${(confidence * 100).toFixed(1)}%`;
 
   const descriptions = {
-    additive:
-      "入口加法条件常被后续归一化削弱，图像虽然逐渐像数字，但目标Label未必控制全局结构。",
-    adagn:
-      "AdaGN在每个残差块注入条件，条件影响增强；但平坦CNN仍缺乏全局感受野。",
-    latent:
-      "VAE将像素压缩到8×7×7 latent。Decoder提供数字形状先验，因此比平坦像素CNN更容易形成完整笔画。",
-    unet: "U-Net的7×7 Bottleneck规划全局数字拓扑，Skip Connection恢复细节，CFG进一步放大Label方向。",
+    additive: "条件只在入口相加，随后容易被归一化与局部卷积削弱。",
+    adagn: "逐层AdaGN增强条件，但平坦CNN仍缺乏全局拓扑规划。",
+    latent: "VAE压缩与Decoder先验减少像素自由度，但latent主干仍较简单。",
+    unet: "Bottleneck、Skip、逐层条件与CFG共同建立稳定的类别运输。",
   };
   byId("mnist-explanation").textContent = descriptions[model];
+}
+
+function drawRealClusters(context, mapper, points, labels, alpha = 0.18) {
+  const centroids = Array.from({ length: 10 }, () => [0, 0, 0]);
+  points.forEach((point, index) => {
+    const label = labels[index];
+    const [x, y] = mapper(point);
+    context.globalAlpha = alpha;
+    context.fillStyle = COLORS[label];
+    context.beginPath();
+    context.arc(x, y, 2.1, 0, Math.PI * 2);
+    context.fill();
+    context.globalAlpha = 1;
+    centroids[label][0] += point[0];
+    centroids[label][1] += point[1];
+    centroids[label][2] += 1;
+  });
+  context.font = "bold 13px Arial";
+  context.textAlign = "center";
+  centroids.forEach((centroid, label) => {
+    const point = [centroid[0] / centroid[2], centroid[1] / centroid[2]];
+    const [x, y] = mapper(point);
+    context.fillStyle = COLORS[label];
+    context.fillText(String(label), x, y);
+  });
 }
 
 function getManifoldExtent() {
@@ -292,32 +457,6 @@ function getManifoldExtent() {
   return paddedExtent(collections, 0.06);
 }
 
-function drawRealClusters(context, mapper, points, labels, alpha = 0.2) {
-  const centroids = Array.from({ length: 10 }, () => [0, 0, 0]);
-  points.forEach((point, index) => {
-    const label = labels[index];
-    const [x, y] = mapper(point);
-    context.fillStyle = `${COLORS[label]}${Math.round(alpha * 255)
-      .toString(16)
-      .padStart(2, "0")}`;
-    context.beginPath();
-    context.arc(x, y, 2.2, 0, Math.PI * 2);
-    context.fill();
-    centroids[label][0] += point[0];
-    centroids[label][1] += point[1];
-    centroids[label][2] += 1;
-  });
-  context.font = "bold 13px system-ui";
-  context.textAlign = "center";
-  centroids.forEach((centroid, label) => {
-    if (!centroid[2]) return;
-    const point = [centroid[0] / centroid[2], centroid[1] / centroid[2]];
-    const [x, y] = mapper(point);
-    context.fillStyle = COLORS[label];
-    context.fillText(String(label), x, y);
-  });
-}
-
 function drawManifold() {
   if (!state.manifold) return;
   const model = byId("manifold-model").value;
@@ -326,41 +465,41 @@ function drawManifold() {
   const canvas = byId("manifold-canvas");
   const context = clearCanvas(canvas);
   const extent = getManifoldExtent();
-  const mapper = createMapper(canvas, extent, 60);
+  const mapper = createMapper(canvas, extent, 62);
   drawAxes(context, canvas, extent, mapper, "shared t-SNE 1", "shared t-SNE 2");
   drawRealClusters(
     context,
     mapper,
     state.manifold.real.points,
     state.manifold.real.labels,
-    0.2,
   );
 
   const expected = state.manifold.expected_labels;
   const modelPoints = state.manifold.models[model];
-  const selectedIndices = expected
+  const selected = expected
     .map((value, index) => (value === label ? index : -1))
     .filter((index) => index >= 0);
-
+  const centroidPath = [];
+  for (let time = 0; time <= timeIndex; time += 1) {
+    const centroid = [0, 0];
+    selected.forEach((sample) => {
+      centroid[0] += modelPoints[time][sample][0];
+      centroid[1] += modelPoints[time][sample][1];
+    });
+    centroidPath.push([
+      centroid[0] / selected.length,
+      centroid[1] / selected.length,
+    ]);
+  }
   context.strokeStyle = COLORS[label];
   context.lineWidth = 2;
-  context.globalAlpha = 0.65;
   context.beginPath();
-  for (let index = 0; index <= timeIndex; index += 1) {
-    const centroid = [0, 0];
-    selectedIndices.forEach((sample) => {
-      centroid[0] += modelPoints[index][sample][0];
-      centroid[1] += modelPoints[index][sample][1];
-    });
-    centroid[0] /= selectedIndices.length;
-    centroid[1] /= selectedIndices.length;
-    const [x, y] = mapper(centroid);
+  centroidPath.forEach((point, index) => {
+    const [x, y] = mapper(point);
     if (index === 0) context.moveTo(x, y);
     else context.lineTo(x, y);
-  }
+  });
   context.stroke();
-  context.globalAlpha = 1;
-
   modelPoints[timeIndex].forEach((point, index) => {
     if (expected[index] !== label) return;
     const [x, y] = mapper(point);
@@ -369,11 +508,10 @@ function drawManifold() {
     context.arc(x, y, 5, 0, Math.PI * 2);
     context.fill();
     context.strokeStyle = "white";
-    context.lineWidth = 1;
     context.stroke();
   });
   byId("manifold-time-value").textContent =
-    state.manifold.times[timeIndex].toFixed(2);
+    state.manifold.times[timeIndex].toFixed(3);
 }
 
 function getVelocityExtent() {
@@ -391,7 +529,7 @@ function drawVelocity() {
   const canvas = byId("velocity-canvas");
   const context = clearCanvas(canvas);
   const extent = getVelocityExtent();
-  const mapper = createMapper(canvas, extent, 60);
+  const mapper = createMapper(canvas, extent, 62);
   drawAxes(
     context,
     canvas,
@@ -405,17 +543,18 @@ function drawVelocity() {
     mapper,
     state.velocity.real.points,
     state.velocity.real.labels,
-    0.17,
+    0.16,
   );
-
   const data = state.velocity.models[model];
   for (let label = 0; label < 10; label += 1) {
     const point = data.centroids[timeIndex][label];
     const velocity = data.velocity[timeIndex][label];
+    const dt =
+      state.velocity.times[timeIndex + 1] - state.velocity.times[timeIndex];
     const start = mapper(point);
-    const next = mapper([
-      point[0] + velocity[0] * 0.1,
-      point[1] + velocity[1] * 0.1,
+    const end = mapper([
+      point[0] + velocity[0] * dt,
+      point[1] + velocity[1] * dt,
     ]);
     context.fillStyle = COLORS[label];
     context.beginPath();
@@ -427,17 +566,17 @@ function drawVelocity() {
     drawArrow(
       context,
       start,
-      [next[0] - start[0], next[1] - start[1]],
+      [end[0] - start[0], end[1] - start[1]],
       COLORS[label],
+      5,
     );
     context.fillStyle = COLORS[label];
-    context.font = "bold 11px system-ui";
-    context.fillText(String(label), next[0] + 7, next[1] - 5);
+    context.font = "bold 11px Arial";
+    context.fillText(String(label), end[0] + 7, end[1] - 5);
   }
-  const start = state.velocity.times[timeIndex];
-  const end = state.velocity.times[timeIndex + 1];
   byId("velocity-time-value").textContent =
-    `${start.toFixed(2)} → ${end.toFixed(2)}`;
+    `${state.velocity.times[timeIndex].toFixed(3)} → ` +
+    state.velocity.times[timeIndex + 1].toFixed(3);
 }
 
 function drawMetric() {
@@ -452,9 +591,9 @@ function drawMetric() {
   const times =
     metric === "distance"
       ? state.velocity.times
-      : state.velocity.times.slice(0, -1).map((value, index) => {
-          return (value + state.velocity.times[index + 1]) / 2;
-        });
+      : state.velocity.times
+          .slice(0, -1)
+          .map((value, index) => (value + state.velocity.times[index + 1]) / 2);
   const allValues = valuesByModel.flat();
   let minY = Math.min(...allValues);
   let maxY = Math.max(...allValues);
@@ -464,27 +603,27 @@ function drawMetric() {
   }
   const dy = Math.max(maxY - minY, 0.1);
   const extent = [0, 1, minY - dy * 0.08, maxY + dy * 0.08];
-  const mapper = createMapper(canvas, extent, 58);
-  const labels = {
+  const mapper = createMapper(canvas, extent, 60);
+  const axisLabels = {
     speed: "mean semantic speed ||df/dt||",
     alignment: "cosine alignment",
     distance: "distance to target centroid",
   };
-  drawAxes(context, canvas, extent, mapper, "Flow time t", labels[metric]);
-  if (metric === "alignment" && minY < 0 && maxY > 0) {
-    const zeroStart = mapper([0, 0]);
-    const zeroEnd = mapper([1, 0]);
-    context.strokeStyle = "#98a4b5";
+  drawAxes(context, canvas, extent, mapper, "Flow time t", axisLabels[metric]);
+  if (metric === "alignment") {
+    const start = mapper([0, 0]);
+    const end = mapper([1, 0]);
+    context.strokeStyle = "#777";
     context.beginPath();
-    context.moveTo(...zeroStart);
-    context.lineTo(...zeroEnd);
+    context.moveTo(...start);
+    context.lineTo(...end);
     context.stroke();
   }
   names.forEach((name, modelIndex) => {
-    const color = ["#3157d5", "#f28e2b", "#2ca02c", "#d62728"][modelIndex];
+    const color = ["#2878b5", "#e6862f", "#3c8d85", "#b3242c"][modelIndex];
     const values = valuesByModel[modelIndex];
     context.strokeStyle = color;
-    context.lineWidth = 2.5;
+    context.lineWidth = 2.2;
     context.beginPath();
     values.forEach((value, index) => {
       const [x, y] = mapper([times[index], value]);
@@ -492,26 +631,18 @@ function drawMetric() {
       else context.lineTo(x, y);
     });
     context.stroke();
-    values.forEach((value, index) => {
-      const [x, y] = mapper([times[index], value]);
-      context.fillStyle = color;
-      context.beginPath();
-      context.arc(x, y, 3.5, 0, Math.PI * 2);
-      context.fill();
-    });
     context.fillStyle = color;
-    context.font = "12px system-ui";
+    context.font = "11px Arial";
     context.textAlign = "left";
-    context.fillText(MODEL_LABELS[name], 72 + modelIndex * 195, 24);
+    context.fillText(MODEL_LABELS[name], 72 + modelIndex * 196, 22);
   });
-
   const explanations = {
     speed:
-      "速度大不代表方向正确。应与目标方向对齐度共同观察：U-Net在生成中期既移动得快，也朝目标类别流形前进。",
+      "速度大不代表方向正确。应与目标对齐度结合：U-Net在生成中期既移动快，也朝目标类别流形前进。",
     alignment:
-      "大于0表示语义速度朝真实目标类别中心移动。后期变负不一定是失败，可能表示样本已进入正确类别流形并转向具体书写风格。",
+      "大于0表示速度朝真实目标类别中心移动；后期变负可能表示已进入正确类别后转向具体书写风格。",
     distance:
-      "距离快速下降表示生成特征进入目标类别区域。若后期分类准确率保持很高但距离略回升，通常是在类别流形内部形成多样化样本。",
+      "距离下降表示进入目标语义区域；若准确率保持高而距离略回升，通常是在类别流形内部形成多样性。",
   };
   byId("metric-explanation").textContent = explanations[metric];
 }
@@ -527,18 +658,22 @@ function populateModelSelect(select, names) {
 }
 
 function attachInteractions() {
-  ["flow-mode", "flow-time", "flow-arrows"].forEach((id) => {
-    byId(id).addEventListener("input", drawFlow);
-  });
-  ["mnist-model", "mnist-label", "mnist-time"].forEach((id) => {
-    byId(id).addEventListener("input", drawMnist);
-  });
-  ["manifold-model", "manifold-label", "manifold-time"].forEach((id) => {
-    byId(id).addEventListener("input", drawManifold);
-  });
-  ["velocity-model", "velocity-time"].forEach((id) => {
-    byId(id).addEventListener("input", drawVelocity);
-  });
+  ["unconditional-time", "unconditional-arrows"].forEach((id) =>
+    byId(id).addEventListener("input", drawUnconditional),
+  );
+  ["conditional-mode", "conditional-time", "conditional-arrows"].forEach((id) =>
+    byId(id).addEventListener("input", drawConditional),
+  );
+  byId("comparison-label").addEventListener("input", drawMnistComparison);
+  ["mnist-model", "mnist-label", "mnist-time"].forEach((id) =>
+    byId(id).addEventListener("input", drawMnist),
+  );
+  ["manifold-model", "manifold-label", "manifold-time"].forEach((id) =>
+    byId(id).addEventListener("input", drawManifold),
+  );
+  ["velocity-model", "velocity-time"].forEach((id) =>
+    byId(id).addEventListener("input", drawVelocity),
+  );
   byId("metric-select").addEventListener("input", drawMetric);
 }
 
@@ -569,14 +704,26 @@ async function initialize() {
     state.velocity = velocity;
     state.sprites = { additive, adagn, latent, unet };
 
+    populateNumericSelect(byId("comparison-label"), 10);
     populateNumericSelect(byId("mnist-label"), 10);
     populateNumericSelect(byId("manifold-label"), 10);
     populateModelSelect(byId("manifold-model"), Object.keys(manifold.models));
     populateModelSelect(byId("velocity-model"), Object.keys(velocity.models));
     byId("manifold-model").value = "conditional_unet";
     byId("velocity-model").value = "conditional_unet";
+
+    const flowMax = flow.times.length - 1;
+    byId("unconditional-time").max = String(flowMax);
+    byId("conditional-time").max = String(flowMax);
+    const mnistMax = predictions.times.length - 1;
+    byId("mnist-time").max = String(mnistMax);
+    byId("manifold-time").max = String(manifold.times.length - 1);
+    byId("velocity-time").max = String(velocity.times.length - 2);
+
     attachInteractions();
-    drawFlow();
+    drawUnconditional();
+    drawConditional();
+    drawMnistComparison();
     drawMnist();
     drawManifold();
     drawVelocity();

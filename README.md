@@ -270,3 +270,15 @@ semantic_velocity(t) ≈ [f(t+Δt)-f(t)] / Δt
 6. 图像 latent、VAE、MMDiT与科学图像瓶颈诊断。
 
 详细研究讨论见 `SCIENTIFIC_IMAGE_FLOW_MATCHING_NOTES.md`，项目规范见 `AGENTS.md`。
+
+## GitHub Pages教程更新（2026-08-30）
+
+教程已经重构为理论先行、证据分层的Nature式学习页面：公式使用MathJax LaTeX渲染；二维无条件与条件Flow分为独立章节；MNIST按入口加法CNN、AdaGN CNN、VAE latent Flow和条件U-Net分别讨论；同一目标Label提供横向时间演进与单模型细粒度交互；分类器语义流形提供真实簇、语义速度和动力学指标。
+
+教程资产现在使用41个时间点：
+
+```text
+t = 0.000, 0.025, 0.050, ..., 1.000
+```
+
+这比原来的10个时间点更适合观察早期结构形成、中期语义分叉和后期细节修正。运行`python scripts/build_tutorial_assets.py`可根据现有Checkpoint重新生成资产。
