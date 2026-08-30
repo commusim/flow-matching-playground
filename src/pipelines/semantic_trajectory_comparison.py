@@ -16,6 +16,12 @@ from src.utils.common import (
 from src.utils.image_data import create_image_loader
 from src.utils.ode import euler_integrate
 from src.utils.semantic_evaluation import load_classifier
+from src.utils.semantic_velocity_plotting import (
+    plot_dynamics_curves,
+    plot_semantic_pca_velocity_fields,
+    real_class_centroids,
+    semantic_dynamics,
+)
 from src.utils.semantic_trajectory_plotting import (
     joint_tsne,
     plot_centroid_trajectories_with_reference,
@@ -219,6 +225,55 @@ def run(config):
         known_curves[name] = known_rate
         final_predictions[name] = predictions[-1]
         final_known[name] = known_masks[-1]
+    target_centroids = real_class_centroids(
+        real_features, real_labels, cfg["num_classes"]
+    )
+    dynamics = {
+        name: semantic_dynamics(
+            feature_sets[name], labels.cpu().numpy(), times, target_centroids
+        )
+        for name in all_frames
+    }
+    plot_semantic_pca_velocity_fields(
+        dynamics,
+        {name: feature_sets[name] for name in all_frames},
+        real_features,
+        real_labels,
+        labels.cpu().numpy(),
+        times,
+        run_dir / "classifier_semantic_velocity_field_pca.png",
+    )
+    midpoint_times = (times[:-1] + times[1:]) / 2
+    plot_dynamics_curves(
+        {name: values["speed"] for name, values in dynamics.items()},
+        midpoint_times,
+        run_dir / "semantic_speed_over_time.png",
+        "Mean semantic speed ||df/dt||",
+        "Classifier-feature semantic speed",
+    )
+    plot_dynamics_curves(
+        {name: values["alignment"] for name, values in dynamics.items()},
+        midpoint_times,
+        run_dir / "target_alignment_over_time.png",
+        "Cosine alignment",
+        "Semantic velocity alignment toward the real target-class centroid",
+        horizontal_zero=True,
+    )
+    plot_dynamics_curves(
+        {name: values["distance"] for name, values in dynamics.items()},
+        times,
+        run_dir / "target_cluster_distance_over_time.png",
+        "Mean distance in 128D classifier feature space",
+        "Distance to the real target-class semantic centroid",
+    )
+    np.savez_compressed(
+        run_dir / "classifier_semantic_features.npz",
+        real_features=real_features,
+        real_labels=real_labels,
+        expected_labels=labels.cpu().numpy(),
+        times=times,
+        **{name: feature_sets[name] for name in all_frames},
+    )
     all_embeddings = joint_tsne(feature_sets, cfg["seed"])
     real_embedding = all_embeddings.pop("real_reference")
     labels_np = labels.cpu().numpy()
@@ -280,6 +335,9 @@ def run(config):
             "accuracy_among_known": known_correct,
             "unknown_rate": float((~known).mean()),
             "target_confidence": confidence_curves[name][-1],
+            "final_target_cluster_distance": float(dynamics[name]["distance"][-1]),
+            "mean_semantic_speed": float(dynamics[name]["speed"].mean()),
+            "final_target_alignment": float(dynamics[name]["alignment"][-1]),
             "metadata": metadata[name],
         }
     plot_unknown_confusions(confusions, run_dir / "unknown_aware_confusions.png")

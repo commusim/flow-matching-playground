@@ -224,6 +224,25 @@ Unknown感知结果：
 | 条件U-Net | 100% | 100% | 100% | 0% |
 
 轨迹起点按目标Label着色：相同基础噪声会复制给0-9，初始位置重合，随后因条件不同而分叉。终点颜色与类别完全由分类器判定，而不是使用目标Label伪装为预测结果。
+### 分类器特征流形上的语义速度场
+
+分类器语义特征为`f_t=C_encoder(x_t)∈R^128`。语义速度使用相邻时间有限差分：
+
+```text
+semantic_velocity(t) ≈ [f(t+Δt)-f(t)] / Δt
+```
+
+这等价于对`J_C(x_t)·v_theta(x_t,t,y)`的数值近似。由于t-SNE是非线性且没有可靠向量变换，真实语义速度使用同一个线性PCA投影位置和速度，t-SNE仍只用于邻域可视化。
+
+新增输出：
+
+- `classifier_semantic_velocity_field_pca.png`：真实类别簇背景上的语义速度箭头；
+- `semantic_speed_over_time.png`：128维语义速度范数；
+- `target_alignment_over_time.png`：速度与“当前位置→真实目标类别中心”方向的余弦对齐；
+- `target_cluster_distance_over_time.png`：到真实目标类别中心的128维距离；
+- `classifier_semantic_features.npz`：原始128维特征，可复用分析。
+
+需要注意：后期目标中心对齐度可能转负、中心距离可能回升，但分类准确率仍保持很高。这通常表示模型已经进入正确类别流形，随后从类别平均中心移动到不同的具体书写风格，而不一定是语义退化。
 ## 输出规范
 
 每个pipeline应在 `outputs/<pipeline>/` 下保存独立实验结果，至少包含总览图、loss曲线、轨迹/速度场图、指标和实际配置。实验完成后可让Codex根据这些输出生成逐图说明文档。
