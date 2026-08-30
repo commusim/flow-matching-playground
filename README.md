@@ -89,7 +89,20 @@ dx/dt = v_theta(x, t, c)
 
 ## 交互式教程
 
-打开 [docs/flow_matching_tutorial.html](docs/flow_matching_tutorial.html)，可以拖动时间 `t`，观察二维粒子如何沿速度场移动，并切换无条件、双月牙和圆环条件。该文件可以直接部署到 GitHub Pages。
+打开[GitHub Pages交互教程](https://commusim.github.io/flow-matching-playground/)或本地`docs/index.html`。教程现分为五章：基础Flow Matching理论、二维无条件/有条件速度场、MNIST多模型比较、监督语义流形与速度场、结构差异结论。支持时间`t`、模型、Label和动力学指标交互。
+
+本地预览需要HTTP服务器：
+
+```powershell
+cd docs
+python -m http.server 8765
+```
+
+然后访问`http://127.0.0.1:8765/`。教程数据资产可通过以下命令从现有Checkpoint重新生成：
+
+```powershell
+python scripts/build_tutorial_assets.py
+```
 
 ## MNIST模型版本与Checkpoint兼容
 

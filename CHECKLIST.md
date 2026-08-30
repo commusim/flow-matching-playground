@@ -64,5 +64,10 @@
 - [x] README已更新
 - [x] 经验理论文档已建立
 - [x] 交互式HTML教程已建立
+- [x] 五章节GitHub Pages教学站点
+- [x] 二维时间/条件/速度场交互
+- [x] MNIST模型/Label/时间图像演进交互
+- [x] 共享t-SNE流形与PCA语义速度场交互
+- [x] 教程资产可复现生成脚本
 - [ ] GitHub Pages自动部署
 - [ ] 每个pipeline生成独立图像说明文档
